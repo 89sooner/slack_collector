@@ -13,10 +13,18 @@ async function processMessages(channelId, parseFunction) {
 
   const newMessages = result.messages.reverse();
   for (const message of newMessages) {
-    if (!lastReadTs || message.ts > lastReadTs) {
-      const parsedMessage = parseFunction(message);
-      console.log("새 메시지:", JSON.stringify(parsedMessage, null, 2));
-      // 여기에 메시지 처리 로직 추가 (예: 데이터베이스에 저장)
+    try {
+      if (!lastReadTs || message.ts > lastReadTs) {
+        const parsedMessage = await parseFunction(message);
+        if (parsedMessage) {
+          console.log("새 메시지:", JSON.stringify(parsedMessage, null, 2));
+          // 여기에 메시지 처리 로직 추가 (예: 데이터베이스에 저장)
+        } else {
+          console.log("메시지 파싱 결과가 null입니다.");
+        }
+      }
+    } catch (error) {
+      console.error(`Error processing individual message:`, error);
     }
   }
 
@@ -28,12 +36,12 @@ async function processMessages(channelId, parseFunction) {
 async function checkAllChannels() {
   try {
     // await processMessages(config.CHANNEL_ID_YANOLJA, parseYanoljaMessage);
-    await processMessages(
-      config.CHANNEL_ID_NAVER_BOOKING,
-      parseNaverBookingMessage
-    );
+    // await processMessages(
+    //   config.CHANNEL_ID_NAVER_BOOKING,
+    //   parseNaverBookingMessage
+    // );
     // await processMessages(config.CHANNEL_ID_AIRBNB, parseAirbnbMessage);
-    // await processMessages(config.CHANNEL_ID_YEOGI, parseYeogiMessage);
+    await processMessages(config.CHANNEL_ID_YEOGI, parseYeogiMessage);
   } catch (error) {
     console.error("에러 발생:", error);
   }
