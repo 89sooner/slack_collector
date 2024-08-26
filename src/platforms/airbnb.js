@@ -18,9 +18,11 @@ function validateAndLogParsedContent(parsedContent) {
     "게스트",
     "예약날짜",
     "예약상세URL",
+    "메시지",
     "예약인원",
-    "예상수입",
-    "호스트",
+    "총결제금액",
+    "호스트수익",
+    "서비스수수료",
     "체크인시간",
     "체크아웃시간",
   ];
@@ -178,24 +180,26 @@ function parseMessageContent(file) {
   const text = file.plain_text;
   let parsedContent = {
     플랫폼: "에어비앤비",
-    예약상태: "예약 대기 중",
+    예약상태: "예약 확정",
     숙소명: "",
     체크인: "",
     체크아웃: "",
     예약번호: "",
     게스트: "",
-    예약날짜: "",
     예약상세URL: "",
     메시지: "",
     예약인원: "",
-    예상수입: "",
-    호스트: "",
+    총결제금액: "",
+    호스트수익: "",
+    서비스수수료: "",
     체크인시간: "",
     체크아웃시간: "",
   };
 
   // 게스트 이름 파싱
-  const guestNameMatch = text.match(/^(.+)님을 호스팅하여/);
+  const guestNameMatch = text.match(
+    /(.+) 님이 \d+월 \d+일에 체크인할 예정입니다/
+  );
   if (guestNameMatch) {
     parsedContent.게스트 = guestNameMatch[1].trim();
   }
@@ -218,23 +222,21 @@ function parseMessageContent(file) {
   }
 
   // 예약번호 파싱
-  const reservationNumberMatch = text.match(/\/HME\w+\?/);
+  const reservationNumberMatch = text.match(/예약 번호\r\n(\w+)/);
   if (reservationNumberMatch) {
-    parsedContent.예약번호 = reservationNumberMatch[0].slice(1, -1);
+    parsedContent.예약번호 = reservationNumberMatch[1];
   }
 
   // 예약 상세 URL 파싱
   const reservationUrlMatch = text.match(
-    /https:\/\/www\.airbnb\.co\.kr\/hosting\/reservations\/details\/\w+/
+    /https:\/\/www\.airbnb\.co\.kr\/hosting\/reservations\/details\/(\w+)/
   );
   if (reservationUrlMatch) {
     parsedContent.예약상세URL = reservationUrlMatch[0];
   }
 
   // 게스트 메시지 파싱
-  const messageMatch = text.match(
-    /\r\n\r\n(.+)\r\n\r\nhttps:\/\/www\.airbnb\.co\.kr\/rooms/
-  );
+  const messageMatch = text.match(/\r\n\r\n(.+)\r\n\r\n/);
   if (messageMatch) {
     parsedContent.메시지 = messageMatch[1].trim();
   }
@@ -245,15 +247,23 @@ function parseMessageContent(file) {
     parsedContent.예약인원 = guestsMatch[1];
   }
 
-  // 예상 수입 파싱
-  const expectedEarningMatch = text.match(
-    /₩([\d,]+)의 수입을 올리실 수 있습니다/
-  );
-  if (expectedEarningMatch) {
-    parsedContent.예상수입 = expectedEarningMatch[1];
+  // 결제 정보 파싱
+  const paymentInfoMatch = text.match(/총 금액\(KRW\)\s+₩([\d,]+)/);
+  if (paymentInfoMatch) {
+    parsedContent.총결제금액 = paymentInfoMatch[1];
   }
 
-  // 호스트 정보는 메일에서 제공되지 않음
+  const hostEarningMatch = text.match(/호스트 수익\s+₩([\d,]+)/);
+  if (hostEarningMatch) {
+    parsedContent.호스트수익 = hostEarningMatch[1];
+  }
+
+  const hostFeeMatch = text.match(
+    /호스트 서비스 수수료\([\d.]+%\)\s+-₩([\d,]+)/
+  );
+  if (hostFeeMatch) {
+    parsedContent.서비스수수료 = hostFeeMatch[1];
+  }
 
   return parsedContent;
 }
