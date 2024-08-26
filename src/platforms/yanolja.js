@@ -1,6 +1,62 @@
+function validateAndLogParsedContent(parsedContent) {
+  const commonRequiredFields = [
+    "수신날짜",
+    "발신번호",
+    "발신자",
+    "수신번호",
+    "수신자",
+    "예약상태",
+    "펜션명",
+    "예약번호",
+    "예약자",
+    "객실명",
+    "입실일",
+    "퇴실일",
+    "이용기간",
+    "판매가격",
+  ];
+
+  const statusSpecificFields = {
+    예약완료: ["픽업여부", "연락처"],
+    예약취소: [],
+    기타: ["연락처"],
+  };
+
+  let requiredFields = [...commonRequiredFields];
+  if (statusSpecificFields[parsedContent.예약상태]) {
+    requiredFields = [
+      ...requiredFields,
+      ...statusSpecificFields[parsedContent.예약상태],
+    ];
+  }
+
+  let isValid = true;
+
+  requiredFields.forEach((field) => {
+    if (!parsedContent[field]) {
+      console.warn(`Warning: ${field} is empty or missing`);
+      isValid = false;
+    }
+  });
+
+  console.log("Parsed content:", JSON.stringify(parsedContent, null, 2));
+  console.log("Is valid:", isValid);
+
+  return isValid;
+}
+
 function parseYanoljaMessage(message) {
   const text = message.text || "";
-  return parseMessageContent(text);
+  const parsedContent = parseMessageContent(text);
+  validateAndLogParsedContent(parsedContent);
+
+  // 각 필드를 개별적으로 로깅
+  // Object.entries(parsedContent).forEach(([key, value]) => {
+  //   console.log(`${key}: "${value}"`);
+  // });
+  console.log("===============================");
+
+  return parsedContent;
 }
 
 function parseMessageContent(text) {

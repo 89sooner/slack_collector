@@ -7,8 +7,9 @@ const stream = require("stream");
 const { promisify } = require("util");
 
 const finished = promisify(stream.finished);
+
 function validateAndLogParsedContent(parsedContent) {
-  const requiredFields = [
+  const commonRequiredFields = [
     "제휴점명",
     "예약번호",
     "결제일",
@@ -17,10 +18,22 @@ function validateAndLogParsedContent(parsedContent) {
     "투숙기간",
     "고객명",
     "연락처",
-    "객실명",
-    "총판매가",
-    "총입금가",
   ];
+
+  const statusSpecificFields = {
+    예약확정: ["객실명", "총판매가", "총입금가"],
+    예약대기: ["객실명"],
+    예약취소: [],
+  };
+
+  let requiredFields = [...commonRequiredFields];
+  if (statusSpecificFields[parsedContent.예약상태]) {
+    requiredFields = [
+      ...requiredFields,
+      ...statusSpecificFields[parsedContent.예약상태],
+    ];
+  }
+
   let isValid = true;
 
   requiredFields.forEach((field) => {
@@ -29,6 +42,12 @@ function validateAndLogParsedContent(parsedContent) {
       isValid = false;
     }
   });
+
+  // 예약대기 상태일 때 잔여객실 정보가 없어도 됨
+  if (parsedContent.예약상태 !== "예약대기" && !parsedContent.잔여객실) {
+    console.warn(`Warning: 잔여객실 is empty or missing`);
+    isValid = false;
+  }
 
   console.log("Parsed content:", JSON.stringify(parsedContent, null, 2));
   console.log("Is valid:", isValid);
@@ -45,18 +64,16 @@ async function parseYeogiMessage(message) {
           file.url_private_download,
           file.id
         );
-        // const parsedContent = parseHtmlContent(htmlContent);
-        // console.log("Parsed content:", JSON.stringify(parsedContent, null, 2));
 
         // parseYeogiMessage 함수 내에서 사용
-        const parsedContent = parseHtmlContent(htmlContent);
+        const parsedContent = parseHtmlContent(htmlContent, file.title);
         validateAndLogParsedContent(parsedContent);
 
         // 각 필드를 개별적으로 로깅
-        Object.entries(parsedContent).forEach(([key, value]) => {
-          console.log(`${key}: "${value}"`);
-        });
-
+        // Object.entries(parsedContent).forEach(([key, value]) => {
+        //   console.log(`${key}: "${value}"`);
+        // });
+        console.log("===============================");
         return parsedContent;
       } catch (error) {
         console.error("Error downloading or parsing HTML content:", error);
@@ -95,19 +112,18 @@ async function downloadAndReadHtml(url, fileId) {
 
   // 파일 읽기
   const htmlContent = await fsPromises.readFile(filePath, "utf8");
-  // console.log(htmlContent);
 
   // 파일 삭제 (선택사항)
-  // await fsPromises.unlink(filePath);
+  await fsPromises.unlink(filePath);
 
   return htmlContent;
 }
 
-function parseHtmlContent(html) {
+function parseHtmlContent(html, title) {
   const $ = cheerio.load(html);
   let parsedContent = {
     플랫폼: "여기어때",
-    예약상태: "예약완료",
+    예약상태: "",
     제휴점명: "",
     예약번호: "",
     결제일: "",
@@ -127,6 +143,23 @@ function parseHtmlContent(html) {
     전달사항: "",
   };
 
+  // 제목에서 예약 상태 파싱
+  if (title.includes("예약 취소")) {
+    parsedContent.예약상태 = "예약취소";
+  } else if (title.includes("예약대기")) {
+    parsedContent.예약상태 = "예약대기";
+  } else if (title.includes("예약 확정")) {
+    parsedContent.예약상태 = "예약확정";
+  } else {
+    parsedContent.예약상태 = "알 수 없음";
+  }
+
+  // 제목에서 예약번호 파싱
+  const reservationNumberMatch = title.match(/\d{14}YE1/);
+  if (reservationNumberMatch) {
+    parsedContent.예약번호 = reservationNumberMatch[0];
+  }
+
   // 모든 테이블을 순회하며 정보 추출
   $("table").each((index, table) => {
     const tableHtml = $(table).html();
@@ -143,7 +176,8 @@ function parseHtmlContent(html) {
           const text = $(row).text().trim();
           if (text.includes("제휴점명")) {
             parsedContent.제휴점명 = text.split(":")[1].trim();
-          } else if (text.includes("예약번호")) {
+          } else if (text.includes("예약번호") && !parsedContent.예약번호) {
+            // 이미 제목에서 파싱한 예약번호가 없을 경우에만 업데이트
             parsedContent.예약번호 = text.split(":")[1].trim();
           } else if (text.includes("결제일")) {
             parsedContent.결제일 = text.split("결제일 :")[1].trim();
@@ -169,7 +203,7 @@ function parseHtmlContent(html) {
     }
 
     // 객실 정보 파싱
-    if (tableHtml.includes("객실명") && tableHtml.includes("잔여 객실")) {
+    if (tableHtml.includes("객실명")) {
       const roomInfoText = $(table)
         .find("tr")
         .eq(0)
@@ -179,7 +213,11 @@ function parseHtmlContent(html) {
         .trim();
       const roomInfoParts = roomInfoText.split("잔여 객실");
       parsedContent.객실명 = roomInfoParts[0].trim();
-      parsedContent.잔여객실 = roomInfoParts[1] ? roomInfoParts[1].trim() : "";
+      if (roomInfoParts.length > 1) {
+        parsedContent.잔여객실 = roomInfoParts[1].trim();
+      } else if (parsedContent.예약상태 !== "예약대기") {
+        parsedContent.잔여객실 = "정보 없음";
+      }
     }
 
     // 결제 내역 파싱

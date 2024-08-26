@@ -17,7 +17,7 @@ async function processMessages(channelId, parseFunction) {
       if (!lastReadTs || message.ts > lastReadTs) {
         const parsedMessage = await parseFunction(message);
         if (parsedMessage) {
-          console.log("새 메시지:", JSON.stringify(parsedMessage, null, 2));
+          // console.log("새 메시지:", JSON.stringify(parsedMessage, null, 2));
           // 여기에 메시지 처리 로직 추가 (예: 데이터베이스에 저장)
         } else {
           console.log("메시지 파싱 결과가 null입니다.");
@@ -40,8 +40,8 @@ async function checkAllChannels() {
     //   config.CHANNEL_ID_NAVER_BOOKING,
     //   parseNaverBookingMessage
     // );
-    // await processMessages(config.CHANNEL_ID_AIRBNB, parseAirbnbMessage);
-    await processMessages(config.CHANNEL_ID_YEOGI, parseYeogiMessage);
+    await processMessages(config.CHANNEL_ID_AIRBNB, parseAirbnbMessage);
+    // await processMessages(config.CHANNEL_ID_YEOGI, parseYeogiMessage);
   } catch (error) {
     console.error("에러 발생:", error);
   }
