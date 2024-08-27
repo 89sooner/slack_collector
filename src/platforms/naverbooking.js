@@ -29,8 +29,8 @@ function validateAndLogParsedContent(parsedContent) {
     }
   });
 
-  console.log("Parsed content:", JSON.stringify(parsedContent, null, 2));
-  console.log("Is valid:", isValid);
+  // console.log("Parsed content:", JSON.stringify(parsedContent, null, 2));
+  // console.log("Is valid:", isValid);
 
   return isValid;
 }
@@ -113,7 +113,7 @@ function parseHtmlContent(html, title) {
   } else if (title.includes("새로운 예약이 확정")) {
     parsedContent.예약상태 = "예약확정";
   } else {
-    parsedContent.예약상태 = "알 수 없음";
+    parsedContent.예약상태 = "알수없음";
   }
 
   // 예약자 추출

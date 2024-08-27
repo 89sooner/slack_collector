@@ -39,8 +39,8 @@ function validateAndLogParsedContent(parsedContent) {
     }
   });
 
-  console.log("Parsed content:", JSON.stringify(parsedContent, null, 2));
-  console.log("Is valid:", isValid);
+  // console.log("Parsed content:", JSON.stringify(parsedContent, null, 2));
+  // console.log("Is valid:", isValid);
 
   return isValid;
 }
@@ -97,7 +97,7 @@ function parseMessageContent(text) {
         ? "예약완료"
         : line.includes("예약취소")
         ? "예약취소"
-        : "기타";
+        : "알수없음";
     } else if (line.includes("펜션명 :")) {
       parsedContent.펜션명 = line.split(":")[1].trim();
     } else if (line.includes("야놀자펜션 예약번호 :")) {

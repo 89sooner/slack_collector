@@ -130,3 +130,4 @@ dist
 .pnp.*
 package-lock.json
 last_read_ts.json
+downloads/*

@@ -35,8 +35,8 @@ function validateAndLogParsedContent(parsedContent) {
     }
   });
 
-  console.log("Parsed content:", JSON.stringify(parsedContent, null, 2));
-  console.log("Is valid:", isValid);
+  // console.log("Parsed content:", JSON.stringify(parsedContent, null, 2));
+  // console.log("Is valid:", isValid);
 
   return isValid;
 }
@@ -60,7 +60,6 @@ async function parseAirbnbMessage(message) {
 }
 
 function parseMessageContent(file, title) {
-  // console.log(title);
   const text = file.plain_text;
   let parsedContent = {
     플랫폼: "에어비앤비",
@@ -83,24 +82,29 @@ function parseMessageContent(file, title) {
   // 제목에 따른 예약 상태 분류
   if (title.includes("대기 중")) {
     parsedContent.예약상태 = "예약대기";
-  } else if (title.includes("예약 알림")) {
+  } else if (title.includes("알림: ")) {
     parsedContent.예약상태 = "예약알림";
   } else if (title.includes("예약 확정")) {
     parsedContent.예약상태 = "예약확정";
   } else {
-    parsedContent.예약상태 = "알 수 없음";
+    parsedContent.예약상태 = "알수없음";
   }
 
   // 게스트 이름 파싱
-  const guestNameMatch = text.match(
-    /(.+) 님이 \d+월 \d+일에 체크인할 예정입니다/
-  );
+  const guestNameMatch = title.match(/(.+) 님이 \d+월 \d+일에 체크인할 예정입니다/);
   if (guestNameMatch) {
     parsedContent.게스트 = guestNameMatch[1].trim();
+  } else {
+    const alternateGuestNameMatch = text.match(
+      /(.+)님에게 메시지를 보내 체크인 세부사항을 확인하거나 인사말을 전하세요./
+    );
+    if (alternateGuestNameMatch) {
+      parsedContent.게스트 = alternateGuestNameMatch[1].trim();
+    }
   }
 
   // 숙소명 파싱
-  const accommodationNameMatch = text.match(/\r\n\r\n(.+)\r\n\r\n방/);
+  const accommodationNameMatch = text.match(/\r\n\r\n(.+)\r\n\r\n(집|공간) 전체/);
   if (accommodationNameMatch) {
     parsedContent.숙소명 = accommodationNameMatch[1].trim();
   }
@@ -153,9 +157,7 @@ function parseMessageContent(file, title) {
     parsedContent.호스트수익 = hostEarningMatch[1];
   }
 
-  const hostFeeMatch = text.match(
-    /호스트 서비스 수수료\([\d.]+%\)\s+-₩([\d,]+)/
-  );
+  const hostFeeMatch = text.match(/호스트 서비스 수수료\([\d.]+%\)\s+-₩([\d,]+)/);
   if (hostFeeMatch) {
     parsedContent.서비스수수료 = hostFeeMatch[1];
   }
