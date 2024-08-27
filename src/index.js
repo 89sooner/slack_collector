@@ -35,13 +35,13 @@ async function processMessages(channelId, parseFunction) {
 
 async function checkAllChannels() {
   try {
-    // await processMessages(config.CHANNEL_ID_YANOLJA, parseYanoljaMessage);
-    // await processMessages(
-    //   config.CHANNEL_ID_NAVER_BOOKING,
-    //   parseNaverBookingMessage
-    // );
+    await processMessages(config.CHANNEL_ID_YANOLJA, parseYanoljaMessage);
+    await processMessages(
+      config.CHANNEL_ID_NAVER_BOOKING,
+      parseNaverBookingMessage
+    );
     await processMessages(config.CHANNEL_ID_AIRBNB, parseAirbnbMessage);
-    // await processMessages(config.CHANNEL_ID_YEOGI, parseYeogiMessage);
+    await processMessages(config.CHANNEL_ID_YEOGI, parseYeogiMessage);
   } catch (error) {
     console.error("에러 발생:", error);
   }

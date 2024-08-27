@@ -16,7 +16,6 @@ function validateAndLogParsedContent(parsedContent) {
     "체크아웃",
     "예약번호",
     "게스트",
-    "예약날짜",
     "예약상세URL",
     "메시지",
     "예약인원",
@@ -46,7 +45,7 @@ async function parseAirbnbMessage(message) {
   if (message.files && message.files.length > 0) {
     const file = message.files[0];
     try {
-      const parsedContent = parseMessageContent(file);
+      const parsedContent = parseMessageContent(file, file.title);
       validateAndLogParsedContent(parsedContent);
 
       console.log("===============================");
@@ -60,127 +59,12 @@ async function parseAirbnbMessage(message) {
   return null;
 }
 
-async function downloadAndReadHtml(url, fileId) {
-  const downloadPath = path.join(__dirname, "..", "..", "downloads");
-  const filePath = path.join(downloadPath, `${fileId}.html`);
-
-  await fsPromises.mkdir(downloadPath, { recursive: true });
-
-  const response = await axios({
-    method: "get",
-    url: url,
-    responseType: "stream",
-    headers: {
-      Authorization: `Bearer ${process.env.SLACK_BOT_TOKEN}`,
-    },
-  });
-
-  const writer = fs.createWriteStream(filePath);
-  response.data.pipe(writer);
-  await finished(writer);
-
-  const htmlContent = await fsPromises.readFile(filePath, "utf8");
-
-  await fsPromises.unlink(filePath);
-
-  return htmlContent;
-}
-
-function parseHtmlContent(html, title) {
-  const $ = cheerio.load(html);
-  let parsedContent = {
-    플랫폼: "에어비앤비",
-    예약상태: "",
-    숙소명: "",
-    체크인: "",
-    체크아웃: "",
-    예약번호: "",
-    게스트: "",
-    예약날짜: "",
-    예약상세URL: "",
-    휴대전화번호: "",
-    예약인원: "",
-    결제금액: "",
-    호스트: "",
-    체크인시간: "",
-    체크아웃시간: "",
-  };
-
-  // 게스트 이름 파싱
-  parsedContent.게스트 = $(
-    'td > table > tbody > tr > td > a[href^="https://www.airbnb.co.kr/rooms/"]'
-  )
-    .text()
-    .trim();
-
-  // 숙소명 파싱
-  parsedContent.숙소명 = $(
-    "td > table > tbody > tr > td > table > tbody > tr > td > div > h2"
-  )
-    .text()
-    .trim();
-
-  // 체크인, 체크아웃 날짜 파싱
-  const checkInOutText = $(
-    "td > table > tbody > tr > td > table > tbody > tr > td > table > tbody > tr > td"
-  )
-    .eq(0)
-    .text()
-    .trim();
-  const [checkIn, checkOut] = checkInOutText
-    .split("체크아웃")
-    .map((text) => text.trim());
-  parsedContent.체크인 = checkIn.replace("체크인", "").trim();
-  parsedContent.체크아웃 = checkOut;
-
-  // 예약번호 파싱
-  parsedContent.예약번호 = $(
-    "td > table > tbody > tr > td > table > tbody > tr > td > div > h1"
-  )
-    .text()
-    .match(/\d{12}HMCH/)[0];
-
-  // 예약 날짜 파싱
-  const reservationDateText = $("td > table > tbody > tr > td")
-    .eq(1)
-    .text()
-    .trim();
-  parsedContent.예약날짜 = reservationDateText.match(
-    /\d{4}년 \d{1,2}월 \d{1,2}일/
-  )[0];
-
-  // 예약 상세 URL 파싱
-  parsedContent.예약상세URL = $(
-    "td > table > tbody > tr > td > table > tbody > tr > td > table > tbody > tr > td > div > a"
-  ).attr("href");
-
-  // 인원 파싱
-  parsedContent.예약인원 = $(
-    "td > table > tbody > tr > td > table > tbody > tr > td > div > p"
-  )
-    .filter((i, el) => $(el).text().includes("인원"))
-    .text()
-    .match(/\d+/)[0];
-
-  // 예상 수익 파싱
-  parsedContent.결제금액 = $(
-    "td > table > tbody > tr > td > table > tbody > tr > td > div > p > b"
-  )
-    .text()
-    .trim();
-
-  // 호스트 정보는 메일에서 제공되지 않음
-
-  // 체크인, 체크아웃 시간 정보는 메일에서 제공되지 않음
-
-  return parsedContent;
-}
-
-function parseMessageContent(file) {
+function parseMessageContent(file, title) {
+  // console.log(title);
   const text = file.plain_text;
   let parsedContent = {
     플랫폼: "에어비앤비",
-    예약상태: "예약 확정",
+    예약상태: "",
     숙소명: "",
     체크인: "",
     체크아웃: "",
@@ -195,6 +79,17 @@ function parseMessageContent(file) {
     체크인시간: "",
     체크아웃시간: "",
   };
+
+  // 제목에 따른 예약 상태 분류
+  if (title.includes("대기 중")) {
+    parsedContent.예약상태 = "예약대기";
+  } else if (title.includes("예약 알림")) {
+    parsedContent.예약상태 = "예약알림";
+  } else if (title.includes("예약 확정")) {
+    parsedContent.예약상태 = "예약확정";
+  } else {
+    parsedContent.예약상태 = "알 수 없음";
+  }
 
   // 게스트 이름 파싱
   const guestNameMatch = text.match(
