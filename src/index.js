@@ -15,28 +15,70 @@ const pool = new Pool({
   port: process.env.DB_PORT,
 });
 
-function calculateNights(checkInDate, checkOutDate) {
-  const airbnbDateFormat = /\d+월 \d+일 \(.\)/;
-
-  if (airbnbDateFormat.test(checkInDate) && airbnbDateFormat.test(checkOutDate)) {
-    const checkIn = new Date(checkInDate.replace(/(\d+)월 (\d+)일 \(.\)/, "2023-$1-$2"));
-    const checkOut = new Date(checkOutDate.replace(/(\d+)월 (\d+)일 \(.\)/, "2023-$1-$2"));
-
-    if (checkIn && checkOut) {
-      const timeDiff = Math.abs(checkOut.getTime() - checkIn.getTime());
-      const nights = Math.ceil(timeDiff / (1000 * 3600 * 24));
-      return nights;
-    }
-  }
-
-  return 0; // 유효하지 않은 날짜 형식일 경우 기본값 0 반환
-}
-
 function extractNumber(value) {
   if (value) {
     return parseFloat(value.replace(/[^0-9.-]+/g, ""));
   }
   return 0;
+}
+
+// 날짜 형식 변환 함수
+function formatDate(platform, dateString) {
+  if (platform === "에어비앤비") {
+    const airbnbDateFormat = /(\d+)월 (\d+)일 \(.\)/;
+    const match = dateString.match(airbnbDateFormat);
+    if (match) {
+      const year = new Date().getFullYear();
+      const month = match[1].padStart(2, "0");
+      const day = match[2].padStart(2, "0");
+      return `${year}-${month}-${day}`;
+    }
+  } else if (platform === "야놀자") {
+    const yanoljaDateFormat = /(\d{4})-(\d{2})-(\d{2})\(.\)/;
+    const match = dateString.match(yanoljaDateFormat);
+    if (match) {
+      return `${match[1]}-${match[2]}-${match[3]}`;
+    }
+  } else if (platform === "네이버 예약") {
+    const naverBookingDateFormat = /(\d{4})\.(\d{2})\.(\d{2})/;
+    const match = dateString.match(naverBookingDateFormat);
+    if (match) {
+      return `${match[1]}-${match[2]}-${match[3]}`;
+    }
+  } else if (platform === "여기어때") {
+    const yeogiDateFormat = /(\d{4})-(\d{2})-(\d{2}) \(.\)/;
+    const match = dateString.match(yeogiDateFormat);
+    if (match) {
+      return `${match[1]}-${match[2]}-${match[3]}`;
+    }
+  }
+  return "";
+}
+
+// 객실명 형식 변환 함수
+function formatRoomName(platform, roomName, accommodationName) {
+  if (platform === "에어비앤비") {
+    return accommodationName || "";
+  } else if (platform === "야놀자") {
+    const yanoljaRoomNameFormat = /(.+) \(입실 \d+시, \d+평형\)/;
+    const match = roomName.match(yanoljaRoomNameFormat);
+    if (match) {
+      return match[1].trim();
+    }
+  } else if (platform === "여기어때") {
+    return roomName.replace("#", "No.");
+  } else if (platform === "네이버 예약") {
+    return roomName;
+  }
+  return "";
+}
+
+// 게스트 이름 형식 변환 함수
+function formatGuestName(platform, guestName) {
+  if (platform === "에어비앤비") {
+    return guestName.replace(/예약 확정 - /, "");
+  }
+  return guestName;
 }
 
 async function processMessages(channelId, parseFunction) {
@@ -70,12 +112,25 @@ async function processMessages(channelId, parseFunction) {
               parsedMessage.숙소명 || parsedMessage.펜션명 || parsedMessage.제휴점명 || "",
             reservation_number: parsedMessage.예약번호 || "",
             guest_name: parsedMessage.게스트 || parsedMessage.예약자 || parsedMessage.고객명 || "",
+            test_guest_name: formatGuestName(
+              parsedMessage.플랫폼,
+              parsedMessage.게스트 || parsedMessage.예약자 || parsedMessage.고객명
+            ),
             guest_phone: parsedMessage.연락처 || parsedMessage.휴대전화번호 || "",
             room_name: parsedMessage.객실명 || "",
+            test_room_name: formatRoomName(
+              parsedMessage.플랫폼,
+              parsedMessage.객실명,
+              parsedMessage.숙소명
+            ),
             check_in_date: parsedMessage.체크인 || parsedMessage.입실일 || "",
             check_out_date: parsedMessage.체크아웃 || parsedMessage.퇴실일 || "",
-            nights: calculateNights(
-              parsedMessage.체크인 || parsedMessage.입실일,
+            test_check_in_date: formatDate(
+              parsedMessage.플랫폼,
+              parsedMessage.체크인 || parsedMessage.입실일
+            ),
+            test_check_out_date: formatDate(
+              parsedMessage.플랫폼,
               parsedMessage.체크아웃 || parsedMessage.퇴실일
             ),
             guests: parsedMessage.예약인원 || parsedMessage.인원 || 0,
