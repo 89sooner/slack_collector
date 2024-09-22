@@ -24,10 +24,7 @@ function validateAndLogParsedContent(parsedContent) {
 
   let requiredFields = [...commonRequiredFields];
   if (statusSpecificFields[parsedContent.예약상태]) {
-    requiredFields = [
-      ...requiredFields,
-      ...statusSpecificFields[parsedContent.예약상태],
-    ];
+    requiredFields = [...requiredFields, ...statusSpecificFields[parsedContent.예약상태]];
   }
 
   let isValid = true;
@@ -45,7 +42,7 @@ function validateAndLogParsedContent(parsedContent) {
   return isValid;
 }
 
-function parseYanoljaMessage(message) {
+async function parseYanoljaMessage(message) {
   const text = message.text || "";
   const parsedContent = parseMessageContent(text);
   validateAndLogParsedContent(parsedContent);
