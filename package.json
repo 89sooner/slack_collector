@@ -8,7 +8,7 @@
     "start": "node src/index.js"
   },
   "keywords": [],
-  "author": "",
+  "author": "89sooner",
   "license": "ISC",
   "dependencies": {
     "@slack/web-api": "^7.3.4",
