@@ -38,3 +38,5 @@ CREATE TABLE public.booking_data (
 	created_at timestamp DEFAULT CURRENT_TIMESTAMP NULL,
 	CONSTRAINT booking_data_pkey PRIMARY KEY (id)
 );
+
+ALTER TABLE public.booking_data ADD COLUMN message_sent BOOLEAN DEFAULT FALSE;
