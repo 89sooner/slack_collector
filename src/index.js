@@ -6,6 +6,7 @@ const { parseNaverBookingMessage } = require("./platforms/naverbooking");
 const { parseAirbnbMessage } = require("./platforms/airbnb");
 const { parseYeogiMessage } = require("./platforms/yeogi");
 const { Pool } = require("pg");
+const cron = require("node-cron");
 
 const pool = new Pool({
   user: process.env.DB_USER,
@@ -205,7 +206,10 @@ async function checkAllChannels() {
 }
 
 // 1분마다 모든 채널 확인
-setInterval(checkAllChannels, 60000);
+// setInterval(checkAllChannels, 60000);
+cron.schedule("*/2 * * * *", () => {
+  checkAllChannels(bot);
+});
 
 console.log("Slack 메시지 폴러가 시작되었습니다.");
 

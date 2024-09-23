@@ -40,10 +40,7 @@ async function parseNaverBookingMessage(message) {
     const file = message.files[0];
     if (file.url_private_download) {
       try {
-        const htmlContent = await downloadAndReadHtml(
-          file.url_private_download,
-          file.id
-        );
+        const htmlContent = await downloadAndReadHtml(file.url_private_download, file.id);
 
         const parsedContent = parseHtmlContent(htmlContent, file.title);
         validateAndLogParsedContent(parsedContent);
@@ -84,7 +81,7 @@ async function downloadAndReadHtml(url, fileId) {
   const htmlContent = await fsPromises.readFile(filePath, "utf8");
 
   // 파일 삭제 (선택사항)
-  // await fsPromises.unlink(filePath);
+  await fsPromises.unlink(filePath);
 
   return htmlContent;
 }
@@ -145,9 +142,7 @@ function parseHtmlContent(html, title) {
     const text = $(element).text().trim();
     if (text === "이용일시") {
       const 이용일시 = $(element).next().text().trim();
-      const match = 이용일시.match(
-        /(\d{4}\.\d{2}\.\d{2})\.\(.+?\)~(\d{4}\.\d{2}\.\d{2})\.\(.+?\)/
-      );
+      const match = 이용일시.match(/(\d{4}\.\d{2}\.\d{2})\.\(.+?\)~(\d{4}\.\d{2}\.\d{2})\.\(.+?\)/);
       if (match) {
         parsedContent.체크인 = match[1];
         parsedContent.체크아웃 = match[2];
