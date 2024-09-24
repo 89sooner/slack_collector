@@ -107,7 +107,10 @@ function parseHtmlContent(html, title) {
     parsedContent.예약상태 = "예약취소";
   } else if (title.includes("새로운 예약이 접수")) {
     parsedContent.예약상태 = "예약대기";
-  } else if (title.includes("새로운 예약이 확정")) {
+  } else if (
+    title.includes("새로운 예약이 확정") ||
+    title.includes("입금이 완료 되어 예약이 확정")
+  ) {
     parsedContent.예약상태 = "예약확정";
   } else {
     parsedContent.예약상태 = "알수없음";
