@@ -89,7 +89,7 @@ async function downloadAndReadHtml(url, fileId) {
 function parseHtmlContent(html, title) {
   const $ = cheerio.load(html);
   let parsedContent = {
-    플랫폼: "네이버 예약",
+    플랫폼: "네이버",
     예약상태: "예약완료",
     예약번호: "",
     예약자: "",

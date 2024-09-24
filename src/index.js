@@ -40,7 +40,7 @@ function formatDate(platform, dateString) {
     if (match) {
       return `${match[1]}-${match[2]}-${match[3]}`;
     }
-  } else if (platform === "네이버 예약") {
+  } else if (platform === "네이버") {
     const naverBookingDateFormat = /(\d{4})\.(\d{2})\.(\d{2})/;
     const match = dateString.match(naverBookingDateFormat);
     if (match) {
@@ -68,7 +68,7 @@ function formatRoomName(platform, roomName, accommodationName) {
     }
   } else if (platform === "여기어때") {
     return roomName.replace("#", "No.");
-  } else if (platform === "네이버 예약") {
+  } else if (platform === "네이버") {
     return roomName;
   }
   return "";
