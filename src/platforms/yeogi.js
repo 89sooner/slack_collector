@@ -28,10 +28,7 @@ function validateAndLogParsedContent(parsedContent) {
 
   let requiredFields = [...commonRequiredFields];
   if (statusSpecificFields[parsedContent.예약상태]) {
-    requiredFields = [
-      ...requiredFields,
-      ...statusSpecificFields[parsedContent.예약상태],
-    ];
+    requiredFields = [...requiredFields, ...statusSpecificFields[parsedContent.예약상태]];
   }
 
   let isValid = true;
@@ -60,10 +57,7 @@ async function parseYeogiMessage(message) {
     const file = message.files[0];
     if (file.url_private_download) {
       try {
-        const htmlContent = await downloadAndReadHtml(
-          file.url_private_download,
-          file.id
-        );
+        const htmlContent = await downloadAndReadHtml(file.url_private_download, file.id);
 
         // parseYeogiMessage 함수 내에서 사용
         const parsedContent = parseHtmlContent(htmlContent, file.title);
@@ -146,8 +140,10 @@ function parseHtmlContent(html, title) {
   // 제목에서 예약 상태 파싱
   if (title.includes("예약 취소")) {
     parsedContent.예약상태 = "예약취소";
-  } else if (title.includes("예약대기")) {
+  } else if (title.includes("예약대기 확인")) {
     parsedContent.예약상태 = "예약대기";
+  } else if (title.includes("예약대기 취소")) {
+    parsedContent.예약상태 = "예약대기취소";
   } else if (title.includes("예약 확정")) {
     parsedContent.예약상태 = "예약확정";
   } else {
@@ -191,11 +187,7 @@ function parseHtmlContent(html, title) {
       if (rows.length >= 2) {
         const columns = rows.eq(1).find("td");
         parsedContent.체크인 = columns.eq(0).text().replace(/\s+/g, " ").trim();
-        parsedContent.체크아웃 = columns
-          .eq(1)
-          .text()
-          .replace(/\s+/g, " ")
-          .trim();
+        parsedContent.체크아웃 = columns.eq(1).text().replace(/\s+/g, " ").trim();
         parsedContent.투숙기간 = columns.eq(2).text().trim();
         parsedContent.고객명 = columns.eq(3).text().trim();
         parsedContent.연락처 = columns.eq(4).text().trim();
@@ -204,13 +196,7 @@ function parseHtmlContent(html, title) {
 
     // 객실 정보 파싱
     if (tableHtml.includes("객실명")) {
-      const roomInfoText = $(table)
-        .find("tr")
-        .eq(0)
-        .find("td")
-        .eq(1)
-        .text()
-        .trim();
+      const roomInfoText = $(table).find("tr").eq(0).find("td").eq(1).text().trim();
       const roomInfoParts = roomInfoText.split("잔여 객실");
       parsedContent.객실명 = roomInfoParts[0].trim();
       if (roomInfoParts.length > 1) {
@@ -312,9 +298,7 @@ function parseMessageContent(file) {
   if (전달사항Index !== -1) {
     const 전달사항End = text.indexOf("파트너센터 URL:", 전달사항Index);
     if (전달사항End !== -1) {
-      parsedContent.전달사항 = text
-        .slice(전달사항Index + "전달사항".length, 전달사항End)
-        .trim();
+      parsedContent.전달사항 = text.slice(전달사항Index + "전달사항".length, 전달사항End).trim();
     }
   }
 
