@@ -80,26 +80,30 @@ function parseMessageContent(file, title) {
   };
 
   // 제목에 따른 예약 상태 분류
-  if (title.includes("대기 중")) {
+  if (title.includes("취소됨")) {
+    parsedContent.예약상태 = "예약취소";
+  } else if (title.includes("대기 중")) {
     parsedContent.예약상태 = "예약대기";
-  } else if (title.includes("알림: ")) {
-    parsedContent.예약상태 = "예약알림";
   } else if (title.includes("예약 확정")) {
     parsedContent.예약상태 = "예약확정";
+  } else if (title.includes("예약 알림")) {
+    parsedContent.예약상태 = "예약알림";
   } else {
     parsedContent.예약상태 = "알수없음";
   }
 
   // 게스트 이름 파싱
-  const guestNameMatch = title.match(/(.+) 님이 \d+월 \d+일에 체크인할 예정입니다/);
-  if (guestNameMatch) {
-    parsedContent.게스트 = guestNameMatch[1].trim();
-  } else {
-    const alternateGuestNameMatch = text.match(
+  if (parsedContent.예약상태 === "예약확정") {
+    const guestNameMatch = text.match(
       /(.+)님에게 메시지를 보내 체크인 세부사항을 확인하거나 인사말을 전하세요./
     );
-    if (alternateGuestNameMatch) {
-      parsedContent.게스트 = alternateGuestNameMatch[1].trim();
+    if (guestNameMatch) {
+      parsedContent.게스트 = guestNameMatch[1].trim();
+    }
+  } else {
+    const guestNameMatch = text.match(/(.+)님의 예약 요청에 답하세요./);
+    if (guestNameMatch) {
+      parsedContent.게스트 = guestNameMatch[1].trim();
     }
   }
 
