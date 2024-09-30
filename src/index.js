@@ -193,6 +193,7 @@ async function processMessages(channelId, parseFunction) {
 }
 
 async function checkAllChannels() {
+  console.log("[CHECK] slack inbound message queue");
   try {
     await Promise.all([
       processMessages(config.CHANNEL_ID_YANOLJA, parseYanoljaMessage),
@@ -205,9 +206,8 @@ async function checkAllChannels() {
   }
 }
 
-// 1분마다 모든 채널 확인
-// setInterval(checkAllChannels, 60000);
-cron.schedule("*/1 * * * *", () => {
+// 30초마다 모든 채널 확인
+cron.schedule("*/30 * * * * *", () => {
   checkAllChannels();
 });
 
