@@ -83,7 +83,7 @@ function formatGuestName(platform, guestName) {
 }
 
 async function processMessages(channelId, parseFunction) {
-  console.log(channelId, parseFunction);
+  // console.log(channelId, parseFunction);
   const lastReadTs = await getLastReadTs();
   const result = await getChannelHistory(channelId, lastReadTs);
 
