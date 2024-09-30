@@ -8,7 +8,7 @@ const { promisify } = require("util");
 
 const finished = promisify(stream.finished);
 
-function validateAndLogParsedContent(parsedContent) {
+function validateAndLogParsedContent(parsedContent, title) {
   const commonRequiredFields = [
     "제휴점명",
     "예약번호",
@@ -33,6 +33,7 @@ function validateAndLogParsedContent(parsedContent) {
 
   let isValid = true;
 
+  console.warn(`[여기어때] Title: ${title}`);
   requiredFields.forEach((field) => {
     if (!parsedContent[field]) {
       console.warn(`Warning: ${field} is empty or missing`);
@@ -58,8 +59,7 @@ async function parseYeogiMessage(message) {
 
         // parseYeogiMessage 함수 내에서 사용
         const parsedContent = parseHtmlContent(htmlContent, file.title);
-        validateAndLogParsedContent(parsedContent);
-        console.log("===============================");
+        validateAndLogParsedContent(parsedContent, file.title);
         return parsedContent;
       } catch (error) {
         console.error("Error downloading or parsing HTML content:", error);

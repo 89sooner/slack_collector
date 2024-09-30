@@ -29,6 +29,7 @@ function validateAndLogParsedContent(parsedContent) {
 
   let isValid = true;
 
+  console.warn(`[야놀자] 예약번호: ${parsedContent.예약번호}`);
   requiredFields.forEach((field) => {
     if (!parsedContent[field]) {
       console.warn(`Warning: ${field} is empty or missing`);
@@ -43,7 +44,6 @@ async function parseYanoljaMessage(message) {
   const text = message.text || "";
   const parsedContent = parseMessageContent(text);
   validateAndLogParsedContent(parsedContent);
-  console.log("===============================");
   return parsedContent;
 }
 

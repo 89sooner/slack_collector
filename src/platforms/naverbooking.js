@@ -8,7 +8,7 @@ const { promisify } = require("util");
 
 const finished = promisify(stream.finished);
 
-function validateAndLogParsedContent(parsedContent) {
+function validateAndLogParsedContent(parsedContent, title) {
   const requiredFields = [
     "플랫폼",
     "예약상태",
@@ -22,6 +22,7 @@ function validateAndLogParsedContent(parsedContent) {
 
   let isValid = true;
 
+  console.warn(`[네이버] Title: ${title}`);
   requiredFields.forEach((field) => {
     if (!parsedContent[field]) {
       console.warn(`Warning: ${field} is empty or missing`);
@@ -40,8 +41,7 @@ async function parseNaverBookingMessage(message) {
         const htmlContent = await downloadAndReadHtml(file.url_private_download, file.id);
 
         const parsedContent = parseHtmlContent(htmlContent, file.title);
-        validateAndLogParsedContent(parsedContent);
-        console.log("===============================");
+        validateAndLogParsedContent(parsedContent, file.title);
         return parsedContent;
       } catch (error) {
         console.error("Error downloading or parsing HTML content:", error);
