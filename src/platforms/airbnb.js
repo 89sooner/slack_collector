@@ -35,9 +35,6 @@ function validateAndLogParsedContent(parsedContent) {
     }
   });
 
-  // console.log("Parsed content:", JSON.stringify(parsedContent, null, 2));
-  // console.log("Is valid:", isValid);
-
   return isValid;
 }
 
@@ -47,7 +44,6 @@ async function parseAirbnbMessage(message) {
     try {
       const parsedContent = parseMessageContent(file, file.title);
       validateAndLogParsedContent(parsedContent);
-
       console.log("===============================");
       return parsedContent;
     } catch (error) {

@@ -36,9 +36,6 @@ function validateAndLogParsedContent(parsedContent) {
     }
   });
 
-  // console.log("Parsed content:", JSON.stringify(parsedContent, null, 2));
-  // console.log("Is valid:", isValid);
-
   return isValid;
 }
 
@@ -46,13 +43,7 @@ async function parseYanoljaMessage(message) {
   const text = message.text || "";
   const parsedContent = parseMessageContent(text);
   validateAndLogParsedContent(parsedContent);
-
-  // 각 필드를 개별적으로 로깅
-  // Object.entries(parsedContent).forEach(([key, value]) => {
-  //   console.log(`${key}: "${value}"`);
-  // });
   console.log("===============================");
-
   return parsedContent;
 }
 

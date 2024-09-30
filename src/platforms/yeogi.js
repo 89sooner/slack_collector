@@ -46,9 +46,6 @@ function validateAndLogParsedContent(parsedContent) {
     isValid = false;
   }
 
-  // console.log("Parsed content:", JSON.stringify(parsedContent, null, 2));
-  // console.log("Is valid:", isValid);
-
   return isValid;
 }
 
@@ -62,11 +59,6 @@ async function parseYeogiMessage(message) {
         // parseYeogiMessage 함수 내에서 사용
         const parsedContent = parseHtmlContent(htmlContent, file.title);
         validateAndLogParsedContent(parsedContent);
-
-        // 각 필드를 개별적으로 로깅
-        // Object.entries(parsedContent).forEach(([key, value]) => {
-        //   console.log(`${key}: "${value}"`);
-        // });
         console.log("===============================");
         return parsedContent;
       } catch (error) {

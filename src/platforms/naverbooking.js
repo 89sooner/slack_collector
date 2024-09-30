@@ -29,9 +29,6 @@ function validateAndLogParsedContent(parsedContent) {
     }
   });
 
-  // console.log("Parsed content:", JSON.stringify(parsedContent, null, 2));
-  // console.log("Is valid:", isValid);
-
   return isValid;
 }
 

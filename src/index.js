@@ -83,7 +83,6 @@ function formatGuestName(platform, guestName) {
 }
 
 async function processMessages(channelId, parseFunction) {
-  // console.log(channelId, parseFunction);
   const lastReadTs = await getLastReadTs();
   const result = await getChannelHistory(channelId, lastReadTs);
 
@@ -166,9 +165,6 @@ async function processMessages(channelId, parseFunction) {
               .join(", ")})
           `;
           const values = Object.values(standardizedData);
-
-          // console.log(values);
-          // console.log(query);
 
           try {
             await pool.query(query, values);
