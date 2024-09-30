@@ -40,3 +40,5 @@ CREATE TABLE public.booking_data (
 );
 
 ALTER TABLE public.booking_data ADD COLUMN message_sent BOOLEAN DEFAULT FALSE;
+ALTER TABLE public.booking_data ADD COLUMN ts_unixtime NUMERIC(16, 6) NULL;
+ALTER TABLE public.booking_data ADD COLUMN ts_korea_time TIMESTAMP NULL;

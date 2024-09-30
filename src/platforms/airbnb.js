@@ -1,19 +1,7 @@
-const axios = require("axios");
-const cheerio = require("cheerio");
-const fs = require("fs");
-const fsPromises = fs.promises;
-const path = require("path");
-const stream = require("stream");
-const { promisify } = require("util");
-
-const finished = promisify(stream.finished);
-
-function validateAndLogParsedContent(parsedContent) {
-  const requiredFields = [
+function validateAndLogParsedContent(parsedContent, title) {
+  const commonRequiredFields = [
     "예약상태",
     "숙소명",
-    "체크인",
-    "체크아웃",
     "예약번호",
     "게스트",
     "예약상세URL",
@@ -22,12 +10,22 @@ function validateAndLogParsedContent(parsedContent) {
     "총결제금액",
     "호스트수익",
     "서비스수수료",
-    "체크인시간",
-    "체크아웃시간",
   ];
+
+  const statusSpecificFields = {
+    예약확정: ["체크인", "체크아웃", "체크인시간", "체크아웃시간"],
+    예약대기: ["체크인", "체크아웃", "체크인시간", "체크아웃시간"],
+    예약취소: [],
+  };
+
+  let requiredFields = [...commonRequiredFields];
+  if (statusSpecificFields[parsedContent.예약상태]) {
+    requiredFields = [...requiredFields, ...statusSpecificFields[parsedContent.예약상태]];
+  }
 
   let isValid = true;
 
+  console.warn(`[에어비앤비] Title: ${title}`);
   requiredFields.forEach((field) => {
     if (!parsedContent[field]) {
       console.warn(`Warning: ${field} is empty or missing`);
@@ -43,8 +41,7 @@ async function parseAirbnbMessage(message) {
     const file = message.files[0];
     try {
       const parsedContent = parseMessageContent(file, file.title);
-      validateAndLogParsedContent(parsedContent);
-      console.log("===============================");
+      validateAndLogParsedContent(parsedContent, file.title);
       return parsedContent;
     } catch (error) {
       console.error("Falling back to plain text parsing:", error);
@@ -89,15 +86,28 @@ function parseMessageContent(file, title) {
   }
 
   // 게스트 이름 파싱
-  if (parsedContent.예약상태 === "예약확정") {
+  if (parsedContent.예약상태 === "예약취소") {
+    const guestNameMatch = text.match(
+      /게스트 (.+) 님이 \d+월 \d+일~\d+일 예약\((\w+)\)을 취소했습니다./
+    );
+    if (guestNameMatch) {
+      parsedContent.게스트 = guestNameMatch[1].trim();
+      parsedContent.예약번호 = guestNameMatch[2];
+    }
+  } else if (parsedContent.예약상태 === "예약확정") {
     const guestNameMatch = text.match(
       /(.+)님에게 메시지를 보내 체크인 세부사항을 확인하거나 인사말을 전하세요./
     );
     if (guestNameMatch) {
       parsedContent.게스트 = guestNameMatch[1].trim();
     }
-  } else {
+  } else if (parsedContent.예약상태 === "예약대기") {
     const guestNameMatch = text.match(/(.+)님의 예약 요청에 답하세요./);
+    if (guestNameMatch) {
+      parsedContent.게스트 = guestNameMatch[1].trim();
+    }
+  } else if (parsedContent.예약상태 === "예약알림") {
+    const guestNameMatch = text.match(/(.+) 님이 \d+월 \d+일 \S+에 체크인할 예정입니다/);
     if (guestNameMatch) {
       parsedContent.게스트 = guestNameMatch[1].trim();
     }
