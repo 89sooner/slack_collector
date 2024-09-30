@@ -117,7 +117,7 @@ async function processMessages(channelId, parseFunction) {
           console.log("새 메시지:", JSON.stringify(parsedMessage, null, 2));
 
           // 아래는 원본 메시지 확인을 위해 가끔 사용
-          logMessageToFile(message);
+          // logMessageToFile(message);
 
           // 플랫폼별로 사용되는 필드 선택
           const platformSpecificFields = {};
@@ -228,10 +228,10 @@ async function checkAllChannels() {
   console.log("[CHECK] slack inbound message queue");
   try {
     await Promise.all([
-      // processMessages(config.CHANNEL_ID_YANOLJA, parseYanoljaMessage),
-      // processMessages(config.CHANNEL_ID_NAVER_BOOKING, parseNaverBookingMessage),
+      processMessages(config.CHANNEL_ID_YANOLJA, parseYanoljaMessage),
+      processMessages(config.CHANNEL_ID_NAVER_BOOKING, parseNaverBookingMessage),
       processMessages(config.CHANNEL_ID_AIRBNB, parseAirbnbMessage),
-      // processMessages(config.CHANNEL_ID_YEOGI, parseYeogiMessage),
+      processMessages(config.CHANNEL_ID_YEOGI, parseYeogiMessage),
     ]);
   } catch (error) {
     console.error("에러 발생:", error);
