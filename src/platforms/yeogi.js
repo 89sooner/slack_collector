@@ -228,7 +228,7 @@ function parseHtmlContent(html, title) {
 function parseMessageContent(file) {
   let parsedContent = {
     플랫폼: "여기어때",
-    예약상태: "예약완료",
+    예약상태: "",
     제휴점명: "",
     예약번호: "",
     결제일: "",

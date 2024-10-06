@@ -17,7 +17,7 @@ function validateAndLogParsedContent(parsedContent) {
   ];
 
   const statusSpecificFields = {
-    예약완료: ["픽업여부", "연락처"],
+    예약확정: ["픽업여부", "연락처"],
     예약취소: [],
     기타: ["연락처"],
   };
@@ -82,7 +82,7 @@ function parseMessageContent(text) {
       parsedContent.수신자 = parts[1] ? parts[1].replace("]", "").trim() : "";
     } else if (line.includes("[야놀자펜션 - ")) {
       parsedContent.예약상태 = line.includes("예약완료")
-        ? "예약완료"
+        ? "예약확정"
         : line.includes("예약취소")
         ? "예약취소"
         : "알수없음";
