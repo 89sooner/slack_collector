@@ -137,25 +137,25 @@ async function processMessages(channelId, parseFunction) {
               parsedMessage.숙소명 || parsedMessage.펜션명 || parsedMessage.제휴점명 || "",
             reservation_number: parsedMessage.예약번호 || "",
             guest_name: parsedMessage.게스트 || parsedMessage.예약자 || parsedMessage.고객명 || "",
-            test_guest_name: formatGuestName(
+            final_guest_name: formatGuestName(
               parsedMessage.플랫폼,
               parsedMessage.게스트 || parsedMessage.예약자 || parsedMessage.고객명
             ),
             guest_phone: parsedMessage.연락처 || parsedMessage.휴대전화번호 || "",
             room_name: parsedMessage.객실명 || "",
-            test_room_name: formatRoomName(
+            final_room_name: formatRoomName(
               parsedMessage.플랫폼,
               parsedMessage.객실명,
               parsedMessage.숙소명
             ),
             check_in_date: parsedMessage.체크인 || parsedMessage.입실일 || "",
             check_out_date: parsedMessage.체크아웃 || parsedMessage.퇴실일 || "",
-            test_check_in_date: formatDate(
+            final_check_in_date: formatDate(
               parsedMessage.플랫폼,
               parsedMessage.체크인 || parsedMessage.입실일,
               parsedMessage.예약상태
             ),
-            test_check_out_date: formatDate(
+            final_check_out_date: formatDate(
               parsedMessage.플랫폼,
               parsedMessage.체크아웃 || parsedMessage.퇴실일,
               parsedMessage.예약상태
@@ -190,7 +190,7 @@ async function processMessages(channelId, parseFunction) {
           };
 
           const query = `
-            INSERT INTO booking_data (${Object.keys(standardizedData).join(", ")})
+            INSERT INTO reservations (${Object.keys(standardizedData).join(", ")})
             VALUES (${Object.keys(standardizedData)
               .map((_, i) => `$${i + 1}`)
               .join(", ")})
