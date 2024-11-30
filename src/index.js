@@ -70,7 +70,7 @@ function formatRoomName(platform, roomName, accommodationName) {
       return match[1].trim();
     }
   } else if (platform === "여기어때") {
-    return roomName.replace("#", "No.");
+    return roomName;
   } else if (platform === "네이버") {
     return roomName;
   }
