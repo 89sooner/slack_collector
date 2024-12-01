@@ -1,3 +1,4 @@
+// /src/platforms/airbnb.js
 function validateAndLogParsedContent(parsedContent, title) {
   const commonRequiredFields = [
     "예약상태",

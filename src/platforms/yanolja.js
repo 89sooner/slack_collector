@@ -1,3 +1,4 @@
+// /src/platforms/yanolja.js
 function validateAndLogParsedContent(parsedContent) {
   const commonRequiredFields = [
     "수신날짜",

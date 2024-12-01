@@ -1,3 +1,4 @@
+// /src/index.js
 const config = require("../config/config");
 const { getChannelHistory } = require("./utils/slackClient");
 const { getLastReadTs, saveLastReadTs } = require("./utils/fileHandler");
