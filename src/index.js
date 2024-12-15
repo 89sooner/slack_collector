@@ -65,7 +65,8 @@ function formatRoomName(platform, roomName, accommodationName) {
   if (platform === "에어비앤비") {
     return accommodationName || "";
   } else if (platform === "야놀자") {
-    const yanoljaRoomNameFormat = /(.+) \(입실 \d+시, \d+평형\)/;
+    // const yanoljaRoomNameFormat = /(.+) \(입실 \d+시, \d+평형\)/;
+    const yanoljaRoomNameFormat = /(.+?)(?:\s*\(.*(?:입실\s*\d+시)?.*(?:\d+평형)?\))?$/;
     const match = roomName.match(yanoljaRoomNameFormat);
     if (match) {
       return match[1].trim();
