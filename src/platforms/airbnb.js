@@ -53,8 +53,7 @@ async function parseAirbnbMessage(message) {
   return null;
 }
 
-// 함수를 외부로 분리하고 패턴을 상수로 정의
-const DATE_PATTERN = /^(?:\d{4}년\s+)?(\d+월\s+\d+일\s+\([월화수목금토일]\))$/;
+const DATE_PATTERN = /^(?:\d{4}년\s+)?(\d+월\s+\d+일)/;
 const TIME_PATTERN = /^(오전|오후)\s+\d+:\d+$/;
 
 function parseCheckInOut(text) {
@@ -66,13 +65,31 @@ function parseCheckInOut(text) {
     체크아웃시간: "",
   };
 
+  // 체크인/아웃 날짜 파싱을 위한 새로운 패턴
+  const dateRangeMatch = text.match(/(\d{4}년\s+)?(\d+월\s+\d+일)~(\d+일)/);
+  if (dateRangeMatch) {
+    const year = dateRangeMatch[1] || "";
+    const startDate = dateRangeMatch[2];
+    const endDate = startDate.split("월")[0] + "월 " + dateRangeMatch[3];
+
+    result.체크인 = (year + startDate).trim();
+    result.체크아웃 = (year + endDate).trim();
+
+    // 기본 시간 설정
+    result.체크인시간 = "오후 4:00";
+    result.체크아웃시간 = "오전 11:00";
+  }
+
+  // 상세 시간 정보가 있는 경우 덮어쓰기
   for (let i = 0; i < lines.length; i++) {
     if (lines[i] === "체크인" && i + 2 < lines.length) {
       const nextLine = lines[i + 1];
       const timeLine = lines[i + 2];
 
-      if (DATE_PATTERN.test(nextLine) && TIME_PATTERN.test(timeLine)) {
+      if (DATE_PATTERN.test(nextLine)) {
         result.체크인 = nextLine;
+      }
+      if (TIME_PATTERN.test(timeLine)) {
         result.체크인시간 = timeLine;
       }
     }
@@ -81,8 +98,10 @@ function parseCheckInOut(text) {
       const nextLine = lines[i + 1];
       const timeLine = lines[i + 2];
 
-      if (DATE_PATTERN.test(nextLine) && TIME_PATTERN.test(timeLine)) {
+      if (DATE_PATTERN.test(nextLine)) {
         result.체크아웃 = nextLine;
+      }
+      if (TIME_PATTERN.test(timeLine)) {
         result.체크아웃시간 = timeLine;
       }
     }
