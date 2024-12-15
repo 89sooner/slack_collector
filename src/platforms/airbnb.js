@@ -56,52 +56,48 @@ async function parseAirbnbMessage(message) {
 const DATE_PATTERN = /^(?:\d{4}년\s+)?(\d+월\s+\d+일)/;
 const TIME_PATTERN = /^(오전|오후)\s+\d+:\d+$/;
 
-function parseCheckInOut(text) {
+function parseCheckInOut(text, title) {
   const lines = text.split(/\r\n|\n/).map((line) => line.trim());
   const result = {
     체크인: "",
     체크아웃: "",
-    체크인시간: "",
-    체크아웃시간: "",
+    체크인시간: "오후 4:00", // 기본값 설정
+    체크아웃시간: "오전 11:00", // 기본값 설정
   };
 
-  // 체크인/아웃 날짜 파싱을 위한 새로운 패턴
-  const dateRangeMatch = text.match(/(\d{4}년\s+)?(\d+월\s+\d+일)~(\d+일)/);
-  if (dateRangeMatch) {
-    const year = dateRangeMatch[1] || "";
-    const startDate = dateRangeMatch[2];
-    const endDate = startDate.split("월")[0] + "월 " + dateRangeMatch[3];
+  // 제목에서 날짜 범위 파싱
+  const titleDateMatch = title.match(/(\d{4}년)\s+(\d+월\s+\d+일)~(\d+일)/);
+  if (titleDateMatch) {
+    const year = titleDateMatch[1];
+    const startDate = titleDateMatch[2];
+    const endDate = startDate.split("월")[0] + "월 " + titleDateMatch[3];
 
-    result.체크인 = (year + startDate).trim();
-    result.체크아웃 = (year + endDate).trim();
-
-    // 기본 시간 설정
-    result.체크인시간 = "오후 4:00";
-    result.체크아웃시간 = "오전 11:00";
+    result.체크인 = `${year} ${startDate}`;
+    result.체크아웃 = `${year} ${endDate}`;
   }
 
-  // 상세 시간 정보가 있는 경우 덮어쓰기
+  // 본문에서 상세 체크인/아웃 정보 파싱 (있는 경우 덮어쓰기)
   for (let i = 0; i < lines.length; i++) {
     if (lines[i] === "체크인" && i + 2 < lines.length) {
-      const nextLine = lines[i + 1];
+      const dateLine = lines[i + 1];
       const timeLine = lines[i + 2];
 
-      if (DATE_PATTERN.test(nextLine)) {
-        result.체크인 = nextLine;
+      if (dateLine.includes("월") && dateLine.includes("일")) {
+        result.체크인 = dateLine;
       }
-      if (TIME_PATTERN.test(timeLine)) {
+      if (timeLine.match(/^(오전|오후)\s+\d+:\d+$/)) {
         result.체크인시간 = timeLine;
       }
     }
 
     if (lines[i] === "체크아웃" && i + 2 < lines.length) {
-      const nextLine = lines[i + 1];
+      const dateLine = lines[i + 1];
       const timeLine = lines[i + 2];
 
-      if (DATE_PATTERN.test(nextLine)) {
-        result.체크아웃 = nextLine;
+      if (dateLine.includes("월") && dateLine.includes("일")) {
+        result.체크아웃 = dateLine;
       }
-      if (TIME_PATTERN.test(timeLine)) {
+      if (timeLine.match(/^(오전|오후)\s+\d+:\d+$/)) {
         result.체크아웃시간 = timeLine;
       }
     }
@@ -178,7 +174,7 @@ function parseMessageContent(file, title) {
   }
 
   // 체크인/아웃 정보 파싱
-  const checkInOutInfo = parseCheckInOut(text);
+  const checkInOutInfo = parseCheckInOut(text, title);
   Object.assign(parsedContent, checkInOutInfo);
 
   // 예약번호 파싱
