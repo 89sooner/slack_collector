@@ -53,6 +53,44 @@ async function parseAirbnbMessage(message) {
   return null;
 }
 
+// 함수를 외부로 분리하고 패턴을 상수로 정의
+const DATE_PATTERN = /^(?:\d{4}년\s+)?(\d+월\s+\d+일\s+\([월화수목금토일]\))$/;
+const TIME_PATTERN = /^(오전|오후)\s+\d+:\d+$/;
+
+function parseCheckInOut(text) {
+  const lines = text.split(/\r\n|\n/).map((line) => line.trim());
+  const result = {
+    체크인: "",
+    체크아웃: "",
+    체크인시간: "",
+    체크아웃시간: "",
+  };
+
+  for (let i = 0; i < lines.length; i++) {
+    if (lines[i] === "체크인" && i + 2 < lines.length) {
+      const nextLine = lines[i + 1];
+      const timeLine = lines[i + 2];
+
+      if (DATE_PATTERN.test(nextLine) && TIME_PATTERN.test(timeLine)) {
+        result.체크인 = nextLine;
+        result.체크인시간 = timeLine;
+      }
+    }
+
+    if (lines[i] === "체크아웃" && i + 2 < lines.length) {
+      const nextLine = lines[i + 1];
+      const timeLine = lines[i + 2];
+
+      if (DATE_PATTERN.test(nextLine) && TIME_PATTERN.test(timeLine)) {
+        result.체크아웃 = nextLine;
+        result.체크아웃시간 = timeLine;
+      }
+    }
+  }
+
+  return result;
+}
+
 function parseMessageContent(file, title) {
   const text = file.plain_text;
   let parsedContent = {
@@ -120,16 +158,9 @@ function parseMessageContent(file, title) {
     parsedContent.숙소명 = accommodationNameMatch[1].trim();
   }
 
-  // 체크인, 체크아웃 날짜 및 시간 파싱
-  const checkInOutMatch = text.match(
-    /체크인\s+체크아웃\r\n\s+\r\n(\d+월 \d+일 \(.\))\s+(\d+월 \d+일 \(.\))\r\n\s+\r\n(오\S+ \d+:\d+)\s+(오\S+ \d+:\d+)/
-  );
-  if (checkInOutMatch) {
-    parsedContent.체크인 = checkInOutMatch[1].trim();
-    parsedContent.체크아웃 = checkInOutMatch[2].trim();
-    parsedContent.체크인시간 = checkInOutMatch[3].trim();
-    parsedContent.체크아웃시간 = checkInOutMatch[4].trim();
-  }
+  // 체크인/아웃 정보 파싱
+  const checkInOutInfo = parseCheckInOut(text);
+  Object.assign(parsedContent, checkInOutInfo);
 
   // 예약번호 파싱
   const reservationNumberMatch = text.match(/예약 번호\r\n(\w+)/);
