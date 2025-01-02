@@ -9,6 +9,9 @@ const { promisify } = require("util");
 
 const finished = promisify(stream.finished);
 
+const { createLogger } = require("../utils/logger");
+const logger = createLogger("YEOGI");
+
 function validateAndLogParsedContent(parsedContent, title) {
   const commonRequiredFields = [
     "제휴점명",
@@ -34,17 +37,17 @@ function validateAndLogParsedContent(parsedContent, title) {
 
   let isValid = true;
 
-  console.warn(`[여기어때] Title: ${title}`);
+  logger.warning("PARSING", `[여기어때] Title: ${title}`);
   requiredFields.forEach((field) => {
     if (!parsedContent[field]) {
-      console.warn(`Warning: ${field} is empty or missing`);
+      logger.warning("PARSING", `Warning: ${field} is empty or missing`);
       isValid = false;
     }
   });
 
   // 예약대기 상태일 때 잔여객실 정보가 없어도 됨
   if (parsedContent.예약상태 !== "예약대기" && !parsedContent.잔여객실) {
-    console.warn(`Warning: 잔여객실 is empty or missing`);
+    logger.warning("PARSING", `Warning: 잔여객실 is empty or missing`);
     isValid = false;
   }
 
@@ -63,16 +66,16 @@ async function parseYeogiMessage(message) {
         validateAndLogParsedContent(parsedContent, file.title);
         return parsedContent;
       } catch (error) {
-        console.error("Error downloading or parsing HTML content:", error);
-        console.log("Falling back to plain text parsing");
+        logger.error("DOWNLOADING", "Error downloading or parsing HTML content:", error);
+        logger.info("PARSING", "Falling back to plain text parsing");
         return parseMessageContent(file);
       }
     } else {
-      console.log("No private download URL, using plain text parsing");
+      logger.info("PARSING", "No private download URL, using plain text parsing");
       return parseMessageContent(file);
     }
   }
-  console.log("No files found in the message");
+  logger.info("PARSING", "No files found in the message");
   return null; // 파일이 없는 경우 null 반환
 }
 
@@ -109,7 +112,7 @@ async function downloadAndReadHtml(url, fileId) {
 function parseHtmlContent(html, title) {
   const $ = cheerio.load(html);
   let parsedContent = {
-    플랫폼: "여기어때",
+    platform: "여기어때",
     예약상태: "",
     제휴점명: "",
     예약번호: "",
@@ -228,7 +231,7 @@ function parseHtmlContent(html, title) {
 // 기존의 parseMessageContent 함수는 그대로 유지
 function parseMessageContent(file) {
   let parsedContent = {
-    플랫폼: "여기어때",
+    platform: "여기어때",
     예약상태: "",
     제휴점명: "",
     예약번호: "",

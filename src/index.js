@@ -2,109 +2,22 @@
 const config = require("../config/config");
 const { getChannelHistory } = require("./utils/slackClient");
 const { getLastReadTs, saveLastReadTs } = require("./utils/fileHandler");
+const { logMessageToFile, logFile } = require("./utils/messageLogger");
+const { pool } = require("./utils/db");
+const {
+  formatGuestName,
+  formatRoomName,
+  formatDate,
+  formatTsKoreaTime,
+  extractNumber,
+} = require("./utils/formatHandler");
 const { parseYanoljaMessage } = require("./platforms/yanolja");
 const { parseNaverBookingMessage } = require("./platforms/naverbooking");
 const { parseAirbnbMessage } = require("./platforms/airbnb");
 const { parseYeogiMessage } = require("./platforms/yeogi");
-const { Pool } = require("pg");
 const cron = require("node-cron");
-const { logMessageToFile, logFile } = require("./utils/messageLogger");
-
-const pool = new Pool({
-  user: process.env.DB_USER,
-  host: process.env.DB_HOST,
-  database: process.env.DB_DATABASE,
-  password: process.env.DB_PASSWORD,
-  port: process.env.DB_PORT,
-});
-
-function extractNumber(value) {
-  if (value) {
-    return parseFloat(value.replace(/[^0-9.-]+/g, ""));
-  }
-  return 0;
-}
-
-// 날짜 형식 변환 함수
-function formatDate(platform, dateString, status) {
-  if (platform === "에어비앤비") {
-    if (status != "예약취소") {
-      const airbnbDateFormat = /(\d+)월 (\d+)일 \(.\)/;
-      const match = dateString.match(airbnbDateFormat);
-      if (match) {
-        const year = new Date().getFullYear();
-        const month = match[1].padStart(2, "0");
-        const day = match[2].padStart(2, "0");
-        return `${year}-${month}-${day}`;
-      }
-    }
-  } else if (platform === "야놀자") {
-    const yanoljaDateFormat = /(\d{4})-(\d{2})-(\d{2})\(.\)/;
-    const match = dateString.match(yanoljaDateFormat);
-    if (match) {
-      return `${match[1]}-${match[2]}-${match[3]}`;
-    }
-  } else if (platform === "네이버") {
-    const naverBookingDateFormat = /(\d{4})\.(\d{2})\.(\d{2})/;
-    const match = dateString.match(naverBookingDateFormat);
-    if (match) {
-      return `${match[1]}-${match[2]}-${match[3]}`;
-    }
-  } else if (platform === "여기어때") {
-    const yeogiDateFormat = /(\d{4})-(\d{2})-(\d{2}) \(.\)/;
-    const match = dateString.match(yeogiDateFormat);
-    if (match) {
-      return `${match[1]}-${match[2]}-${match[3]}`;
-    }
-  }
-  return "";
-}
-
-// 객실명 형식 변환 함수
-function formatRoomName(platform, roomName, accommodationName) {
-  if (platform === "에어비앤비") {
-    return accommodationName || "";
-  } else if (platform === "야놀자") {
-    // const yanoljaRoomNameFormat = /(.+) \(입실 \d+시, \d+평형\)/;
-    const yanoljaRoomNameFormat = /(.+?)(?:\s*\(.*(?:입실\s*\d+시)?.*(?:\d+평형)?\))?$/;
-    const match = roomName.match(yanoljaRoomNameFormat);
-    if (match) {
-      return match[1].trim();
-    }
-  } else if (platform === "여기어때") {
-    return roomName;
-  } else if (platform === "네이버") {
-    return roomName;
-  }
-  return "";
-}
-
-// 게스트 이름 형식 변환 함수
-function formatGuestName(platform, guestName) {
-  if (platform === "에어비앤비") {
-    return guestName.replace(/예약 확정 - /, "");
-  }
-  return guestName;
-}
-
-// 메시지 수신날짜 KTC 형식 변환 함수
-function formatTsKoreaTime(tsKoreaTime) {
-  const dateFormat = /(\d{4})\. (\d{1,2})\. (\d{1,2})\. (오전|오후) (\d{1,2}):(\d{2}):(\d{2})/;
-  const match = tsKoreaTime.match(dateFormat);
-  if (match) {
-    const [_, year, month, day, ampm, hour, minute, second] = match;
-    let formattedHour = parseInt(hour, 10);
-    if (ampm === "오후" && formattedHour < 12) {
-      formattedHour += 12;
-    } else if (ampm === "오전" && formattedHour === 12) {
-      formattedHour = 0;
-    }
-    return `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")} ${formattedHour
-      .toString()
-      .padStart(2, "0")}:${minute}:${second}`;
-  }
-  return tsKoreaTime;
-}
+const { createLogger } = require("./utils/logger");
+const logger = createLogger("SLACK_COLLECTOR");
 
 async function processMessages(channelId, parseFunction) {
   const lastReadTs = await getLastReadTs();
@@ -116,14 +29,14 @@ async function processMessages(channelId, parseFunction) {
       if (!lastReadTs || message.ts > lastReadTs) {
         const parsedMessage = await parseFunction(message);
         if (parsedMessage) {
-          console.log("새 메시지:", JSON.stringify(parsedMessage, null, 2));
+          logger.info("PARSING", "새 메시지:", parsedMessage);
 
           // 아래는 원본 메시지 확인을 위해 가끔 사용
-          // logMessageToFile(message);
+          logMessageToFile(message);
 
           // 플랫폼별로 사용되는 필드 선택
           const platformSpecificFields = {};
-          if (parsedMessage.플랫폼 === "야놀자") {
+          if (parsedMessage.platform === "야놀자") {
             platformSpecificFields.sender = parsedMessage.발신자 || "";
             platformSpecificFields.sender_number = parsedMessage.발신번호 || "";
             platformSpecificFields.receiver = parsedMessage.수신자 || "";
@@ -133,32 +46,32 @@ async function processMessages(channelId, parseFunction) {
 
           // 표준화된 데이터로 변환
           const standardizedData = {
-            platform: parsedMessage.플랫폼,
+            platform: parsedMessage.platform,
             reservation_status: parsedMessage.예약상태,
             accommodation_name:
               parsedMessage.숙소명 || parsedMessage.펜션명 || parsedMessage.제휴점명 || "",
             reservation_number: parsedMessage.예약번호 || "",
             guest_name: parsedMessage.게스트 || parsedMessage.예약자 || parsedMessage.고객명 || "",
             final_guest_name: formatGuestName(
-              parsedMessage.플랫폼,
-              parsedMessage.게스트 || parsedMessage.예약자 || parsedMessage.고객명
+              parsedMessage.platform,
+              parsedMessage.게스트 || parsedMessage.예약자 || parsedMessage.고객명 || ""
             ),
             guest_phone: parsedMessage.연락처 || parsedMessage.휴대전화번호 || "",
             room_name: parsedMessage.객실명 || "",
             final_room_name: formatRoomName(
-              parsedMessage.플랫폼,
+              parsedMessage.platform,
               parsedMessage.객실명,
               parsedMessage.숙소명
             ),
             check_in_date: parsedMessage.체크인 || parsedMessage.입실일 || "",
             check_out_date: parsedMessage.체크아웃 || parsedMessage.퇴실일 || "",
             final_check_in_date: formatDate(
-              parsedMessage.플랫폼,
+              parsedMessage.platform,
               parsedMessage.체크인 || parsedMessage.입실일,
               parsedMessage.예약상태
             ),
             final_check_out_date: formatDate(
-              parsedMessage.플랫폼,
+              parsedMessage.platform,
               parsedMessage.체크아웃 || parsedMessage.퇴실일,
               parsedMessage.예약상태
             ),
@@ -201,21 +114,27 @@ async function processMessages(channelId, parseFunction) {
 
           try {
             await pool.query(query, values);
-            console.log(
+            logger.success(
+              "SAVING",
               `[${standardizedData.platform}] 예약 정보가 데이터베이스에 저장되었습니다.`
             );
-            console.log(
+            logger.info(
+              "SAVING",
               "******************************************************************************"
             );
           } catch (error) {
-            console.error(`데이터베이스 저장 중 오류 발생 (${standardizedData.platform}):`, error);
+            logger.error(
+              "SAVING",
+              `데이터베이스 저장 중 오류 발생 (${standardizedData.platform}):`,
+              error
+            );
           }
         } else {
-          console.log("메시지 파싱 결과가 null입니다.");
+          logger.info("PARSING", "메시지 파싱 결과가 null입니다.");
         }
       }
     } catch (error) {
-      console.error(`Error processing individual message for ${channelId}:`, error);
+      logger.error("PARSING", `Error processing individual message for ${channelId}:`, error);
       // 에러 발생 시 해당 메시지 처리를 건너뛰고 다음 메시지로 진행
       continue;
     }
@@ -227,7 +146,7 @@ async function processMessages(channelId, parseFunction) {
 }
 
 async function checkAllChannels() {
-  console.log("[CHECK] slack inbound message queue");
+  logger.info("CHECK", "slack inbound message queue");
   try {
     await Promise.all([
       processMessages(config.CHANNEL_ID_YANOLJA, parseYanoljaMessage),
@@ -236,7 +155,7 @@ async function checkAllChannels() {
       processMessages(config.CHANNEL_ID_YEOGI, parseYeogiMessage),
     ]);
   } catch (error) {
-    console.error("에러 발생:", error);
+    logger.error("CHECK", "에러 발생:", error);
   }
 }
 
@@ -245,7 +164,7 @@ cron.schedule("*/30 * * * * *", () => {
   checkAllChannels();
 });
 
-console.log("Slack 메시지 폴러가 시작되었습니다.");
+logger.info("INIT", "Slack 메시지 폴러가 시작되었습니다.");
 
 // 초기 실행
 checkAllChannels();
@@ -253,8 +172,8 @@ checkAllChannels();
 // 데이터베이스 연결 테스트
 pool.query("SELECT NOW()", (err, res) => {
   if (err) {
-    console.error("데이터베이스 연결 실패:", err);
+    logger.error("DB", "데이터베이스 연결 실패:", err);
   } else {
-    console.log("데이터베이스에 성공적으로 연결되었습니다.");
+    logger.success("DB", "데이터베이스에 성공적으로 연결되었습니다.");
   }
 });

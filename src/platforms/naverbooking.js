@@ -6,12 +6,14 @@ const fsPromises = fs.promises;
 const path = require("path");
 const stream = require("stream");
 const { promisify } = require("util");
+const { createLogger } = require("../utils/logger");
+const logger = createLogger("NAVER");
 
 const finished = promisify(stream.finished);
 
 function validateAndLogParsedContent(parsedContent, title) {
   const requiredFields = [
-    "플랫폼",
+    "platform",
     "예약상태",
     "예약번호",
     "예약자",
@@ -23,10 +25,10 @@ function validateAndLogParsedContent(parsedContent, title) {
 
   let isValid = true;
 
-  console.warn(`[네이버] Title: ${title}`);
+  logger.warning("PARSING", `[네이버] Title: ${title}`);
   requiredFields.forEach((field) => {
     if (!parsedContent[field]) {
-      console.warn(`Warning: ${field} is empty or missing`);
+      logger.warning("PARSING", `Warning: ${field} is empty or missing`);
       isValid = false;
     }
   });
@@ -45,12 +47,12 @@ async function parseNaverBookingMessage(message) {
         validateAndLogParsedContent(parsedContent, file.title);
         return parsedContent;
       } catch (error) {
-        console.error("Error downloading or parsing HTML content:", error);
+        logger.error("DOWNLOADING", "Error downloading or parsing HTML content:", error);
         return null;
       }
     }
   }
-  console.log("No files found in the message");
+  logger.info("PARSING", "No files found in the message");
   return null;
 }
 
@@ -87,7 +89,7 @@ async function downloadAndReadHtml(url, fileId) {
 function parseHtmlContent(html, title) {
   const $ = cheerio.load(html);
   let parsedContent = {
-    플랫폼: "네이버",
+    platform: "네이버",
     예약상태: "",
     예약번호: "",
     예약자: "",

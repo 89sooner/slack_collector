@@ -1,4 +1,6 @@
-// /src/platforms/yanolja.js
+const { createLogger } = require("../utils/logger");
+const logger = createLogger("YANOLJA");
+
 function validateAndLogParsedContent(parsedContent) {
   const commonRequiredFields = [
     "수신날짜",
@@ -30,10 +32,10 @@ function validateAndLogParsedContent(parsedContent) {
 
   let isValid = true;
 
-  console.warn(`[야놀자] 예약번호: ${parsedContent.예약번호}`);
+  logger.warning("PARSING", `[야놀자] 예약번호: ${parsedContent.예약번호}`);
   requiredFields.forEach((field) => {
     if (!parsedContent[field]) {
-      console.warn(`Warning: ${field} is empty or missing`);
+      logger.warning("PARSING", `Warning: ${field} is empty or missing`);
       isValid = false;
     }
   });
@@ -51,7 +53,7 @@ async function parseYanoljaMessage(message) {
 function parseMessageContent(text) {
   const lines = text.split("\n");
   let parsedContent = {
-    플랫폼: "야놀자",
+    platform: "야놀자",
     수신날짜: "",
     발신번호: "",
     발신자: "",

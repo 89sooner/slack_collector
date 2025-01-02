@@ -1,4 +1,6 @@
-// /src/platforms/airbnb.js
+const { createLogger } = require("../utils/logger");
+const logger = createLogger("AIRBNB");
+
 function validateAndLogParsedContent(parsedContent, title) {
   const commonRequiredFields = [
     "예약상태",
@@ -26,10 +28,10 @@ function validateAndLogParsedContent(parsedContent, title) {
 
   let isValid = true;
 
-  console.warn(`[에어비앤비] Title: ${title}`);
+  logger.warning("PARSING", `[에어비앤비] Title: ${title}`);
   requiredFields.forEach((field) => {
     if (!parsedContent[field]) {
-      console.warn(`Warning: ${field} is empty or missing`);
+      logger.warning("PARSING", `Warning: ${field} is empty or missing`);
       isValid = false;
     }
   });
@@ -45,11 +47,11 @@ async function parseAirbnbMessage(message) {
       validateAndLogParsedContent(parsedContent, file.title);
       return parsedContent;
     } catch (error) {
-      console.error("Falling back to plain text parsing:", error);
+      logger.error("PARSING", "Falling back to plain text parsing:", error);
       return null;
     }
   }
-  console.log("No files found in the message");
+  logger.info("PARSING", "No files found in the message");
   return null;
 }
 
@@ -109,7 +111,7 @@ function parseCheckInOut(text, title) {
 function parseMessageContent(file, title) {
   const text = file.plain_text;
   let parsedContent = {
-    플랫폼: "에어비앤비",
+    platform: "에어비앤비",
     예약상태: "",
     숙소명: "",
     체크인: "",
@@ -133,8 +135,8 @@ function parseMessageContent(file, title) {
     parsedContent.예약상태 = "예약대기";
   } else if (title.includes("예약 확정")) {
     parsedContent.예약상태 = "예약확정";
-  } else if (title.includes("예약 알림")) {
-    parsedContent.예약상태 = "예약알림";
+  } else if (title.includes("알림: 2")) {
+    parsedContent.예약상태 = "예약대기";
   } else {
     parsedContent.예약상태 = "알수없음";
   }
