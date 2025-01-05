@@ -191,15 +191,30 @@ function parseHtmlContent(html, title) {
     }
 
     // 객실 정보 파싱
+    const roomInfoPattern1 = /객실명\s*:\s*([^]+?)(?=\s*$|\s*잔여\s*객실)/;
+    const roomInfoPattern2 = /객실명:\s*([^]*?)(?=\s*$|\s*$)/;
+
+    // 첫 번째 방법: 테이블에서 객실명 찾기
     if (tableHtml.includes("객실명")) {
       const roomInfoText = $(table).find("tr").eq(0).find("td").eq(1).text().trim();
       const roomInfoParts = roomInfoText.split("잔여 객실");
       parsedContent.객실명 = roomInfoParts[0].trim();
       if (roomInfoParts.length > 1) {
         parsedContent.잔여객실 = roomInfoParts[1].trim();
-      } else if (parsedContent.예약상태 !== "예약대기") {
-        parsedContent.잔여객실 = "정보 없음";
       }
+    }
+
+    // 두 번째 방법: ul/li에서 객실명 찾기
+    if (!parsedContent.객실명) {
+      $("ul li").each((index, element) => {
+        const text = $(element).text().trim();
+        if (text.includes("객실명:")) {
+          const match = text.match(roomInfoPattern2);
+          if (match && match[1]) {
+            parsedContent.객실명 = match[1].trim();
+          }
+        }
+      });
     }
 
     // 결제 내역 파싱

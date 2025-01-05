@@ -159,10 +159,10 @@ async function checkAllChannels() {
   logger.info("CHECK", "slack inbound message queue");
   try {
     await Promise.all([
-      // processMessages(config.CHANNEL_ID_YANOLJA, parseYanoljaMessage),
-      // processMessages(config.CHANNEL_ID_NAVER_BOOKING, parseNaverBookingMessage),
+      processMessages(config.CHANNEL_ID_YANOLJA, parseYanoljaMessage),
+      processMessages(config.CHANNEL_ID_NAVER_BOOKING, parseNaverBookingMessage),
       processMessages(config.CHANNEL_ID_AIRBNB, parseAirbnbMessage),
-      // processMessages(config.CHANNEL_ID_YEOGI, parseYeogiMessage),
+      processMessages(config.CHANNEL_ID_YEOGI, parseYeogiMessage),
     ]);
   } catch (error) {
     logger.error("CHECK", "에러 발생:", error);
