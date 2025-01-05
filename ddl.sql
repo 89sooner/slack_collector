@@ -1,4 +1,4 @@
--- 2024-10-16 이후
+-- 예약 테이블
 CREATE TABLE public.reservations (
 	id serial4 NOT NULL,
 	platform varchar(20) NULL,
@@ -43,48 +43,22 @@ CREATE TABLE public.reservations (
 	CONSTRAINT reservations_pkey PRIMARY KEY (id)
 );
 
--- 2024-10-16 이전
-CREATE TABLE public.booking_data (
+
+-- 에어비앤비 예약 테이블
+CREATE TABLE public.airbnb_reservations (
 	id serial4 NOT NULL,
-	platform varchar(20) NULL,
-	reservation_status varchar(20) NULL,
-	accommodation_name varchar(255) NULL,
 	reservation_number varchar(50) NULL,
+	status varchar(100) NULL,
 	guest_name varchar(100) NULL,
-	test_guest_name varchar(100) NULL,
 	guest_phone varchar(20) NULL,
 	room_name varchar(255) NULL,
-	test_room_name varchar(255) NULL,
 	check_in_date varchar(50) NULL,
 	check_out_date varchar(50) NULL,
-	test_check_in_date varchar(50) NULL,
-	test_check_out_date varchar(50) NULL,
-	guests int4 NULL,
-	total_price numeric(12, 2) NULL,
-	discount numeric(12, 2) NULL,
-	coupon numeric(12, 2) NULL,
-	point numeric(12, 2) NULL,
-	final_price numeric(12, 2) NULL,
-	host_earnings numeric(12, 2) NULL,
-	service_fee numeric(12, 2) NULL,
-	tax numeric(12, 2) NULL,
-	request text NULL,
-	pickup_status varchar(20) NULL,
-	remaining_rooms varchar(20) NULL,
-	reservation_details_url varchar(255) NULL,
-	message text NULL,
-	check_in_time varchar(50) NULL,
-	check_out_time varchar(50) NULL,
-	payment_date varchar(50) NULL,
-	sender varchar(100) NULL,
-	sender_number varchar(20) NULL,
-	receiver varchar(100) NULL,
-	receiver_number varchar(20) NULL,
-	received_date timestamp NULL,
-	created_at timestamp DEFAULT CURRENT_TIMESTAMP NULL,
-	CONSTRAINT booking_data_pkey PRIMARY KEY (id)
+	adult_count int4 NULL,
+	child_count int4 NULL,
+	revenue numeric(12, 2) NULL,
+	ts_unixtime numeric(16, 6) NULL,
+	ts_korea_time timestamp NULL,
+	CONSTRAINT airbnb_reservations_pkey PRIMARY KEY (id),
+	CONSTRAINT airbnb_reservations_reservation_number_key UNIQUE (reservation_number)
 );
-
-ALTER TABLE public.booking_data ADD COLUMN message_sent BOOLEAN DEFAULT FALSE;
-ALTER TABLE public.booking_data ADD COLUMN ts_unixtime NUMERIC(16, 6) NULL;
-ALTER TABLE public.booking_data ADD COLUMN ts_korea_time TIMESTAMP NULL;
