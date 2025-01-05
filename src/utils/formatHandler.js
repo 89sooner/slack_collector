@@ -9,38 +9,52 @@ function extractNumber(value) {
 }
 
 // 날짜 형식 변환 함수
-function formatDate(platform, dateString, status) {
-  if (platform === "에어비앤비") {
-    if (status != "예약취소") {
-      const airbnbDateFormat = /(\d+)월 (\d+)일 \(.\)/;
-      const match = dateString.match(airbnbDateFormat);
+function formatDate(platform, dateStr, status) {
+  if (!dateStr) return null; // 날짜 문자열이 없는 경우 처리
+
+  try {
+    if (platform === "에어비앤비") {
+      const standardPattern = /(\d+)월\s+(\d+)일\s*\([월화수목금토일]\)/;
+      // 새로운 형식 (예: "2025년 2월 16일")
+      const alternatePattern = /(\d{4})년\s+(\d+)월\s+(\d+)일/;
+
+      let match = dateStr.match(standardPattern);
       if (match) {
-        const year = new Date().getFullYear();
+        const currentYear = new Date().getFullYear();
         const month = match[1].padStart(2, "0");
         const day = match[2].padStart(2, "0");
+        return `${currentYear}-${month}-${day}`;
+      }
+
+      match = dateStr.match(alternatePattern);
+      if (match) {
+        const year = match[1];
+        const month = match[2].padStart(2, "0");
+        const day = match[3].padStart(2, "0");
         return `${year}-${month}-${day}`;
-      } else {
-        logger.error("FORMAT_DATE", `Airbnb date string did not match: ${dateString}`);
+      }
+    } else if (platform === "야놀자") {
+      const yanoljaDateFormat = /(\d{4})-(\d{2})-(\d{2})\(.\)/;
+      const match = dateStr.match(yanoljaDateFormat);
+      if (match) {
+        return `${match[1]}-${match[2]}-${match[3]}`;
+      }
+    } else if (platform === "네이버") {
+      const naverBookingDateFormat = /(\d{4})\.(\d{2})\.(\d{2})/;
+      const match = dateStr.match(naverBookingDateFormat);
+      if (match) {
+        return `${match[1]}-${match[2]}-${match[3]}`;
+      }
+    } else if (platform === "여기어때") {
+      const yeogiDateFormat = /(\d{4})-(\d{2})-(\d{2}) \(.\)/;
+      const match = dateStr.match(yeogiDateFormat);
+      if (match) {
+        return `${match[1]}-${match[2]}-${match[3]}`;
       }
     }
-  } else if (platform === "야놀자") {
-    const yanoljaDateFormat = /(\d{4})-(\d{2})-(\d{2})\(.\)/;
-    const match = dateString.match(yanoljaDateFormat);
-    if (match) {
-      return `${match[1]}-${match[2]}-${match[3]}`;
-    }
-  } else if (platform === "네이버") {
-    const naverBookingDateFormat = /(\d{4})\.(\d{2})\.(\d{2})/;
-    const match = dateString.match(naverBookingDateFormat);
-    if (match) {
-      return `${match[1]}-${match[2]}-${match[3]}`;
-    }
-  } else if (platform === "여기어때") {
-    const yeogiDateFormat = /(\d{4})-(\d{2})-(\d{2}) \(.\)/;
-    const match = dateString.match(yeogiDateFormat);
-    if (match) {
-      return `${match[1]}-${match[2]}-${match[3]}`;
-    }
+  } catch (error) {
+    logger.error("FORMAT_DATE", `Error formatting date: ${dateStr}`, error);
+    return null;
   }
   return "";
 }
@@ -48,7 +62,23 @@ function formatDate(platform, dateString, status) {
 // 객실명 형식 변환 함수
 function formatRoomName(platform, roomName, accommodationName) {
   if (platform === "에어비앤비") {
-    return accommodationName || "";
+    if (accommodationName) {
+      // 브랜드명 표기 표준화
+      return accommodationName
+        .replace(/([LlIi]{1,2})카이브([LlIi]{1,2})/i, (match, prefix, suffix) => {
+          // 첫 번째 l/L과 두 번째 l/L 각각의 길이를 체크
+          const prefixLength = prefix.length;
+          const suffixLength = suffix.length;
+
+          // 길이에 따른 표준화
+          let standardPrefix = prefixLength > 1 ? "LL" : "L";
+          let standardSuffix = suffixLength > 1 ? "LL" : "L";
+
+          return `${standardPrefix}카이브${standardSuffix}`;
+        })
+        .replace(/평형/, "평대"); // 평형 표기 통일
+    }
+    return "";
   } else if (platform === "야놀자") {
     // const yanoljaRoomNameFormat = /(.+) \(입실 \d+시, \d+평형\)/;
     const yanoljaRoomNameFormat = /(.+?)(?:\s*\(.*(?:입실\s*\d+시)?.*(?:\d+평형)?\))?$/;
