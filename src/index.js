@@ -27,6 +27,16 @@ async function processMessages(channelId, parseFunction) {
   for (const message of newMessages) {
     try {
       if (!lastReadTs || message.ts > lastReadTs) {
+        // Airbnb 플랫폼의 경우 특정 제목이 아닌 경우 파싱을 시도하지 않음
+        if (parseFunction === parseAirbnbMessage) {
+          const title = message.files && message.files[0] ? message.files[0].title : "";
+          const validTitles = ["취소됨", "대기 중", "예약 확정"];
+          if (!validTitles.some((validTitle) => title.includes(validTitle))) {
+            logger.info("PARSING", `Skipping Airbnb message with title: ${title}`);
+            continue;
+          }
+        }
+
         const parsedMessage = await parseFunction(message);
         if (parsedMessage) {
           logger.info("PARSING", "새 메시지:", parsedMessage);

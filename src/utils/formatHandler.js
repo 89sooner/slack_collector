@@ -1,3 +1,6 @@
+const { createLogger } = require("./logger");
+const logger = createLogger("FORMAT_HANDLER");
+
 function extractNumber(value) {
   if (value) {
     return parseFloat(value.replace(/[^0-9.-]+/g, ""));
@@ -16,6 +19,8 @@ function formatDate(platform, dateString, status) {
         const month = match[1].padStart(2, "0");
         const day = match[2].padStart(2, "0");
         return `${year}-${month}-${day}`;
+      } else {
+        logger.error("FORMAT_DATE", `Airbnb date string did not match: ${dateString}`);
       }
     }
   } else if (platform === "야놀자") {
