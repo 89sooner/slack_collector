@@ -118,18 +118,18 @@ function parseMessageContent(file, title) {
   // 공통 숙소명 파싱 함수
   function parseAccommodationName(text) {
     const prefix = "(?:일광\\d+층\\s*·\\s*)?"; // Optional floor prefix
-    const nameBase = "(?:[LlI]{1,2})카이브(?:[LlI]{1,2})"; // Captures the actual l/L count
-    const locations = "(?:송정|기장일광|일광)점";
+    const nameBase = "(?:[LlI]{1,2})카이브(?:[LlI]{1,2})"; // Captures L/l variations
+    const locations = "(?:해운대\\s+)?(?:송정|기장일광|일광)점"; // Updated location pattern
     const sizePattern = "\\(\\s*\\d+평[형대]\\s*\\)";
 
     const patterns = [
-      // Pattern 1: Standard suite format
+      // Pattern 1: Standard suite format with optional area prefix
       new RegExp(
         `${prefix}${nameBase}\\s+스위트\\s+[Nn][Oo]\\.?\\d+\\s+${locations}\\s*${sizePattern}`,
         "i"
       ),
 
-      // Pattern 2: Ryokan suite format
+      // Pattern 2: Ryokan suite format with optional area prefix
       new RegExp(
         `${prefix}${nameBase}\\s+료칸스위트\\s+[Nn][Oo]\\.?\\d+\\s+${locations}\\s*${sizePattern}`,
         "i"
@@ -139,7 +139,7 @@ function parseMessageContent(file, title) {
     for (const pattern of patterns) {
       const match = text.match(pattern);
       if (match) {
-        // 원본 형식을 유지하되 평형만 평대로 변경
+        // Standardize the format and replace 평형 with 평대
         return match[0].replace(/평형/, "평대").trim();
       }
     }
