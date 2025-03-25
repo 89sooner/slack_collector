@@ -1,162 +1,148 @@
-// /src/index.js
+/**
+ * Slack 예약 메시지 수집 및 처리 메인 애플리케이션
+ */
 const config = require("../config/config");
+const { validateConfig } = require("./utils/configValidator");
 const { getChannelHistory } = require("./utils/slackClient");
 const { getLastReadTs, saveLastReadTs } = require("./utils/fileHandler");
-const { logMessageToFile, logFile } = require("./utils/messageLogger");
-const { pool } = require("./utils/db");
-const {
-  formatGuestName,
-  formatRoomName,
-  formatDate,
-  formatTsKoreaTime,
-  extractNumber,
-} = require("./utils/formatHandler");
+const { logMessageToFile } = require("./utils/messageLogger");
+const { testConnection, saveReservation, initializeSchema } = require("./utils/db");
+const { standardizeData } = require("./utils/dataStandardizer");
 const { parseYanoljaMessage } = require("./platforms/yanolja");
 const { parseNaverBookingMessage } = require("./platforms/naverbooking");
 const { parseAirbnbMessage } = require("./platforms/airbnb");
 const { parseYeogiMessage } = require("./platforms/yeogi");
+const { startServer } = require("./api/server");
 const cron = require("node-cron");
 const { createLogger } = require("./utils/logger");
+const { handleError } = require("./utils/errorHandler");
+const { monitor } = require("./utils/monitor");
+const { reservationCache } = require("./utils/cache");
+
 const logger = createLogger("SLACK_COLLECTOR");
 
+/**
+ * 특정 채널의 메시지를 처리합니다
+ * @param {string} channelId - Slack 채널 ID
+ * @param {Function} parseFunction - 해당 채널 메시지의 파싱 함수
+ */
 async function processMessages(channelId, parseFunction) {
-  const lastReadTs = await getLastReadTs();
-  const result = await getChannelHistory(channelId, lastReadTs);
+  try {
+    const lastReadTs = await getLastReadTs();
+    const result = await getChannelHistory(channelId, lastReadTs);
 
-  const newMessages = result.messages.reverse();
-  for (const message of newMessages) {
-    try {
-      if (!lastReadTs || message.ts > lastReadTs) {
-        // Airbnb 플랫폼의 경우 특정 제목이 아닌 경우 파싱을 시도하지 않음
-        if (parseFunction === parseAirbnbMessage) {
-          const title = message.files && message.files[0] ? message.files[0].title : "";
-          const validTitles = ["취소됨", "대기 중", "예약 확정"];
-          if (!validTitles.some((validTitle) => title.includes(validTitle))) {
-            logger.info("PARSING", `Skipping Airbnb message with title: ${title}`);
+    const newMessages = result.messages.reverse();
+    if (newMessages.length === 0) {
+      logger.info("FETCH", `채널 ${channelId}에 새 메시지가 없습니다.`);
+      return;
+    }
+
+    logger.info("FETCH", `채널 ${channelId}에서 ${newMessages.length}개의 새 메시지를 처리합니다.`);
+
+    for (const message of newMessages) {
+      try {
+        if (!lastReadTs || message.ts > lastReadTs) {
+          if (!shouldProcessMessage(message, parseFunction)) {
             continue;
           }
+
+          await processMessage(message, parseFunction);
         }
-
-        const parsedMessage = await parseFunction(message);
-        if (parsedMessage) {
-          logger.info("PARSING", "새 메시지:", parsedMessage);
-
-          // 아래는 원본 메시지 확인을 위해 가끔 사용
-          logMessageToFile(message);
-
-          // 플랫폼별로 사용되는 필드 선택
-          const platformSpecificFields = {};
-          if (parsedMessage.platform === "야놀자") {
-            platformSpecificFields.sender = parsedMessage.발신자 || "";
-            platformSpecificFields.sender_number = parsedMessage.발신번호 || "";
-            platformSpecificFields.receiver = parsedMessage.수신자 || "";
-            platformSpecificFields.receiver_number = parsedMessage.수신번호 || "";
-            platformSpecificFields.received_date = parsedMessage.수신날짜 || null;
-          }
-
-          // 표준화된 데이터로 변환
-          const standardizedData = {
-            platform: parsedMessage.platform,
-            reservation_status: parsedMessage.예약상태,
-            accommodation_name:
-              parsedMessage.숙소명 || parsedMessage.펜션명 || parsedMessage.제휴점명 || "",
-            reservation_number: parsedMessage.예약번호 || "",
-            guest_name: parsedMessage.게스트 || parsedMessage.예약자 || parsedMessage.고객명 || "",
-            final_guest_name: formatGuestName(
-              parsedMessage.platform,
-              parsedMessage.게스트 || parsedMessage.예약자 || parsedMessage.고객명 || ""
-            ),
-            guest_phone: parsedMessage.연락처 || parsedMessage.휴대전화번호 || "",
-            room_name: parsedMessage.객실명 || "",
-            final_room_name: formatRoomName(
-              parsedMessage.platform,
-              parsedMessage.객실명,
-              parsedMessage.숙소명
-            ),
-            check_in_date: parsedMessage.체크인 || parsedMessage.입실일 || "",
-            check_out_date: parsedMessage.체크아웃 || parsedMessage.퇴실일 || "",
-            final_check_in_date: formatDate(
-              parsedMessage.platform,
-              parsedMessage.체크인 || parsedMessage.입실일,
-              parsedMessage.예약상태
-            ),
-            final_check_out_date: formatDate(
-              parsedMessage.platform,
-              parsedMessage.체크아웃 || parsedMessage.퇴실일,
-              parsedMessage.예약상태
-            ),
-            guests: parsedMessage.예약인원 || parsedMessage.인원 || 0,
-            total_price: extractNumber(
-              parsedMessage.총결제금액 ||
-                parsedMessage.총판매가 ||
-                parsedMessage.결제금액 ||
-                parsedMessage.판매가격
-            ),
-            discount: extractNumber(parsedMessage.할인),
-            coupon: extractNumber(parsedMessage.쿠폰),
-            point: extractNumber(parsedMessage.포인트),
-            final_price: extractNumber(parsedMessage.최종매출가),
-            host_earnings: extractNumber(parsedMessage.호스트수익),
-            service_fee: extractNumber(parsedMessage.서비스수수료),
-            tax: extractNumber(parsedMessage.숙박세),
-            request: parsedMessage.요청사항 || parsedMessage.전달사항 || parsedMessage.메시지 || "",
-            pickup_status: parsedMessage.픽업여부 || "",
-            remaining_rooms: parsedMessage.잔여객실 || "",
-            reservation_details_url: parsedMessage.예약상세URL || "",
-            message: parsedMessage.메시지 || "",
-            check_in_time: parsedMessage.체크인시간 || "",
-            check_out_time: parsedMessage.체크아웃시간 || "",
-            payment_date: parsedMessage.결제일 || "",
-            ts_unixtime: message.ts,
-            ts_korea_time: formatTsKoreaTime(
-              new Date(message.ts * 1000).toLocaleString("ko-KR", { timeZone: "Asia/Seoul" })
-            ),
-            ...platformSpecificFields,
-          };
-
-          const query = `
-            INSERT INTO reservations (${Object.keys(standardizedData).join(", ")})
-            VALUES (${Object.keys(standardizedData)
-              .map((_, i) => `$${i + 1}`)
-              .join(", ")})
-          `;
-          const values = Object.values(standardizedData);
-
-          try {
-            await pool.query(query, values);
-            logger.success(
-              "SAVING",
-              `[${standardizedData.platform}] 예약 정보가 데이터베이스에 저장되었습니다.`
-            );
-            logger.info(
-              "SAVING",
-              "******************************************************************************"
-            );
-          } catch (error) {
-            logger.error(
-              "SAVING",
-              `데이터베이스 저장 중 오류 발생 (${standardizedData.platform}):`,
-              error
-            );
-          }
-        } else {
-          logger.info("PARSING", "메시지 파싱 결과가 null입니다.");
-        }
+      } catch (error) {
+        logger.error("PROCESS", `메시지 처리 중 오류 발생 (ts: ${message.ts}):`, error);
+        // 에러 발생 시 해당 메시지 처리를 건너뛰고 다음 메시지로 진행
+        continue;
       }
-    } catch (error) {
-      logger.error("PARSING", `Error processing individual message for ${channelId}:`, error);
-      // 에러 발생 시 해당 메시지 처리를 건너뛰고 다음 메시지로 진행
-      continue;
     }
-  }
 
-  if (newMessages.length > 0) {
-    await saveLastReadTs(newMessages[newMessages.length - 1].ts);
+    if (newMessages.length > 0) {
+      await saveLastReadTs(newMessages[newMessages.length - 1].ts);
+      logger.info(
+        "TIMESTAMP",
+        `채널 ${channelId}의 마지막 읽은 타임스탬프 업데이트: ${
+          newMessages[newMessages.length - 1].ts
+        }`
+      );
+    }
+  } catch (error) {
+    logger.error("FETCH", `채널 ${channelId} 처리 중 오류 발생:`, error);
   }
 }
 
+/**
+ * 메시지 처리 여부를 결정합니다
+ * @param {Object} message - Slack 메시지
+ * @param {Function} parseFunction - 메시지 파싱 함수
+ * @returns {boolean} 처리 여부
+ */
+function shouldProcessMessage(message, parseFunction) {
+  if (parseFunction === parseAirbnbMessage) {
+    const title = message.files && message.files[0] ? message.files[0].title : "";
+    const validTitles = ["취소됨", "대기 중", "예약 확정"];
+
+    if (!validTitles.some((validTitle) => title.includes(validTitle))) {
+      logger.info("FILTER", `Airbnb 메시지 제목 필터링: ${title}`);
+      return false;
+    }
+  }
+  return true;
+}
+
+/**
+ * 개별 메시지를 처리합니다
+ * @param {Object} message - Slack 메시지
+ * @param {Function} parseFunction - 메시지 파싱 함수
+ */
+async function processMessage(message, parseFunction) {
+  try {
+    // 캐시에서 이미 처리된 메시지인지 확인
+    const cacheKey = `message_${message.ts}`;
+    if (reservationCache.get(cacheKey)) {
+      logger.info("CACHE", `이미 처리된 메시지입니다: ${message.ts}`);
+      return;
+    }
+
+    const parsedMessage = await parseFunction(message);
+
+    if (!parsedMessage) {
+      logger.info("PARSING", "메시지 파싱 결과가 null입니다.");
+      monitor.incrementFailedParsing();
+      return;
+    }
+
+    logger.info("PARSING", "새 메시지 파싱 완료:", parsedMessage);
+    monitor.incrementProcessed(parsedMessage.platform);
+
+    // 원본 메시지 로깅 (디버깅용)
+    logMessageToFile(message);
+
+    // 데이터 표준화
+    const standardizedData = standardizeData(parsedMessage, message);
+
+    // 데이터베이스 저장
+    const saved = await saveReservation(standardizedData);
+
+    if (saved) {
+      monitor.incrementSaved();
+      // 메시지 처리 완료 후 캐시에 저장
+      reservationCache.set(cacheKey, { processed: true, timestamp: Date.now() });
+      logger.info(
+        "SAVING",
+        "******************************************************************************"
+      );
+    }
+  } catch (error) {
+    handleError(error, "메시지 처리", "PROCESS_MESSAGE");
+    monitor.recordError(error);
+  }
+}
+
+/**
+ * 모든 채널을 확인합니다
+ */
 async function checkAllChannels() {
-  logger.info("CHECK", "slack inbound message queue");
+  logger.info("CHECK", "Slack 인바운드 메시지 큐 확인 시작");
+
   try {
     await Promise.all([
       processMessages(config.CHANNEL_ID_YANOLJA, parseYanoljaMessage),
@@ -164,26 +150,83 @@ async function checkAllChannels() {
       processMessages(config.CHANNEL_ID_AIRBNB, parseAirbnbMessage),
       processMessages(config.CHANNEL_ID_YEOGI, parseYeogiMessage),
     ]);
+
+    logger.info("CHECK", "모든 채널 확인 완료");
   } catch (error) {
-    logger.error("CHECK", "에러 발생:", error);
+    logger.error("CHECK", "채널 확인 중 오류 발생:", error);
   }
 }
 
-// 30초마다 모든 채널 확인
-cron.schedule("*/30 * * * * *", () => {
-  checkAllChannels();
-});
+/**
+ * 애플리케이션 초기화 및 실행
+ */
+async function initialize() {
+  logger.info("INIT", "Slack 메시지 수집기 초기화 중...");
 
-logger.info("INIT", "Slack 메시지 폴러가 시작되었습니다.");
-
-// 초기 실행
-checkAllChannels();
-
-// 데이터베이스 연결 테스트
-pool.query("SELECT NOW()", (err, res) => {
-  if (err) {
-    logger.error("DB", "데이터베이스 연결 실패:", err);
-  } else {
-    logger.success("DB", "데이터베이스에 성공적으로 연결되었습니다.");
+  // 설정 검증
+  if (!validateConfig(config)) {
+    logger.error("INIT", "설정 검증 실패. 애플리케이션을 종료합니다.");
+    process.exit(1);
   }
+
+  // 데이터베이스 연결 테스트
+  const dbConnected = await testConnection();
+  if (!dbConnected) {
+    logger.error("INIT", "데이터베이스 연결에 실패했습니다. 프로그램을 종료합니다.");
+    process.exit(1);
+  }
+
+  // 데이터베이스 스키마 초기화
+  try {
+    await initializeSchema();
+  } catch (error) {
+    handleError(error, "스키마 초기화", "INIT");
+    logger.warning("INIT", "스키마 초기화 실패. 기존 스키마를 사용합니다.");
+  }
+
+  // API 서버 시작 (API_ENABLE 환경변수가 true일 때만)
+  if (config.API_ENABLE === "true") {
+    startServer();
+  }
+
+  // 초기 실행
+  await checkAllChannels();
+
+  // 정기적 실행 설정
+  cron.schedule("*/30 * * * * *", () => {
+    checkAllChannels();
+  });
+
+  // 정기적 상태 보고
+  cron.schedule("0 */1 * * *", () => {
+    monitor.logStatus();
+  });
+
+  logger.info("INIT", "Slack 메시지 수집기가 시작되었습니다. 30초마다 채널을 확인합니다.");
+}
+
+// 종료 처리
+process.on("SIGINT", gracefulShutdown);
+process.on("SIGTERM", gracefulShutdown);
+
+/**
+ * 애플리케이션 정상 종료 처리
+ */
+async function gracefulShutdown() {
+  logger.info("SHUTDOWN", "애플리케이션을 종료하는 중...");
+
+  // 캐시 리소스 정리
+  reservationCache.destroy();
+
+  // 마지막 상태 로깅
+  monitor.logStatus();
+
+  logger.info("SHUTDOWN", "정상적으로 종료되었습니다.");
+  process.exit(0);
+}
+
+// 애플리케이션 시작
+initialize().catch((error) => {
+  handleError(error, "애플리케이션 초기화", "INIT");
+  process.exit(1);
 });

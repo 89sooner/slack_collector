@@ -8,6 +8,56 @@ function extractNumber(value) {
   return 0;
 }
 
+/**
+ * 문자열을 날짜 객체로 파싱
+ * @param {string} dateStr - 파싱할 날짜 문자열
+ * @returns {Date|null} - 파싱된 Date 객체 또는 null
+ */
+function parseDate(dateStr) {
+  if (!dateStr) return null;
+
+  try {
+    // 여러 형식의 날짜 처리
+    // 1. YYYY-MM-DD 형식
+    const isoPattern = /(\d{4})-(\d{2})-(\d{2})/;
+    // 2. YYYY.MM.DD 형식
+    const dotPattern = /(\d{4})\.(\d{2})\.(\d{2})/;
+    // 3. YYYY년 MM월 DD일 형식
+    const koreanPattern = /(\d{4})년\s*(\d{1,2})월\s*(\d{1,2})일/;
+
+    let year, month, day;
+
+    if (isoPattern.test(dateStr)) {
+      const match = dateStr.match(isoPattern);
+      year = parseInt(match[1], 10);
+      month = parseInt(match[2], 10) - 1; // JavaScript 월은 0부터 시작
+      day = parseInt(match[3], 10);
+    } else if (dotPattern.test(dateStr)) {
+      const match = dateStr.match(dotPattern);
+      year = parseInt(match[1], 10);
+      month = parseInt(match[2], 10) - 1;
+      day = parseInt(match[3], 10);
+    } else if (koreanPattern.test(dateStr)) {
+      const match = dateStr.match(koreanPattern);
+      year = parseInt(match[1], 10);
+      month = parseInt(match[2], 10) - 1;
+      day = parseInt(match[3], 10);
+    } else {
+      // 다른 형식은 일단 Date 객체에 맡김
+      const parsed = new Date(dateStr);
+      if (!isNaN(parsed.getTime())) {
+        return parsed;
+      }
+      return null;
+    }
+
+    return new Date(year, month, day);
+  } catch (error) {
+    logger.error("PARSE_DATE", `날짜 파싱 오류 (${dateStr}):`, error);
+    return null;
+  }
+}
+
 // 날짜 형식 변환 함수
 function formatDate(platform, dateStr, status) {
   if (!dateStr) return null; // 날짜 문자열이 없는 경우 처리
@@ -121,4 +171,11 @@ function formatTsKoreaTime(tsKoreaTime) {
   return tsKoreaTime;
 }
 
-module.exports = { extractNumber, formatDate, formatRoomName, formatGuestName, formatTsKoreaTime };
+module.exports = {
+  extractNumber,
+  formatDate,
+  formatRoomName,
+  formatGuestName,
+  formatTsKoreaTime,
+  parseDate,
+};
