@@ -1,0 +1,47 @@
+version: "3.8"
+
+services:
+  app:
+    build: .
+    restart: always
+    depends_on:
+      - db
+    environment:
+      - SLACK_BOT_TOKEN=${SLACK_BOT_TOKEN}
+      - CHANNEL_ID_YANOLJA=${CHANNEL_ID_YANOLJA}
+      - CHANNEL_ID_NAVER_BOOKING=${CHANNEL_ID_NAVER_BOOKING}
+      - CHANNEL_ID_AIRBNB=${CHANNEL_ID_AIRBNB}
+      - CHANNEL_ID_YEOGI=${CHANNEL_ID_YEOGI}
+      - DB_USER=postgres
+      - DB_HOST=db
+      - DB_DATABASE=pension_manager
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_PORT=5432
+      - API_ENABLE=true
+      - API_PORT=8090
+      - NODE_ENV=production
+      - LOG_LEVEL=info
+      - BACKUP_ENABLED=${BACKUP_ENABLED:-false}
+      - BACKUP_INTERVAL_DAYS=${BACKUP_INTERVAL_DAYS:-1}
+      - BACKUP_RETENTION_DAYS=${BACKUP_RETENTION_DAYS:-30}
+    ports:
+      - "${API_PORT:-8090}:${API_PORT:-8090}"
+    volumes:
+      - ./logs:/app/logs
+      - ./downloads:/app/downloads
+      - ./backups:/app/backups
+
+  db:
+    image: postgres:14-alpine
+    restart: always
+    environment:
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+      - POSTGRES_USER=postgres
+      - POSTGRES_DB=pension_manager
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
+volumes:
+  postgres_data:
