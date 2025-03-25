@@ -40,6 +40,17 @@ app.get("/status", (req, res) => {
   res.status(200).json(monitor.generateReport());
 });
 
+// 채널 상태 엔드포인트
+app.get("/channels/status", async (req, res) => {
+  try {
+    const channelStates = await getAllChannelStates();
+    res.status(200).json(channelStates);
+  } catch (error) {
+    logger.error("QUERY", "채널 상태 조회 중 오류:", error);
+    res.status(500).json({ error: "채널 상태를 조회하는 중 오류가 발생했습니다" });
+  }
+});
+
 // 예약 목록 조회 엔드포인트
 app.get("/reservations", async (req, res) => {
   try {

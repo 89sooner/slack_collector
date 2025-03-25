@@ -13,9 +13,9 @@ RUN npm ci --only=production
 COPY . .
 
 # 디렉토리 생성 및 권한 설정
-RUN mkdir -p downloads logs backups && \
-    chown -R appuser:appgroup /app/downloads /app/logs /app/backups && \
-    chmod -R 755 /app/downloads /app/logs /app/backups
+RUN mkdir -p /app/downloads /app/logs /app/backups /app/data && \
+    chown -R appuser:appgroup /app && \
+    chmod -R 755 /app
 
 # 환경 변수 설정
 ENV NODE_ENV=production

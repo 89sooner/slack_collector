@@ -27,9 +27,11 @@ services:
     ports:
       - "${API_PORT:-8090}:${API_PORT:-8090}"
     volumes:
-      - ./logs:/app/logs:rw
-      - ./downloads:/app/downloads:rw
-      - ./backups:/app/backups:rw
+      - ./logs:/app/logs
+      - ./downloads:/app/downloads
+      - ./backups:/app/backups
+      - ./data:/app/src/data
+    user: "node" # 루트 사용자로 실행하여 권한 문제 해결
 
 volumes:
-  postgres_data:
+  data-volume:
