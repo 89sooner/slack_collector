@@ -4,7 +4,9 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "mocha src/tests/**/*.test.js",
+    "test:watch": "mocha --watch src/tests/**/*.test.js",
+    "test:coverage": "nyc mocha src/tests/**/*.test.js",
     "start": "node src/index.js",
     "dev": "nodemon src/index.js"
   },
@@ -21,12 +23,19 @@
     "axios": "^1.7.5",
     "chalk": "^4.1.2",
     "cheerio": "^1.0.0",
+    "cors": "^2.8.5",
     "dotenv": "^16.4.5",
+    "express": "^4.21.2",
+    "helmet": "^8.1.0",
     "node-cron": "^3.0.3",
     "pg": "^8.12.0"
   },
   "devDependencies": {
-    "nodemon": "^2.0.22"
+    "chai": "^4.5.0",
+    "mocha": "^10.8.2",
+    "nodemon": "^2.0.22",
+    "nyc": "^15.1.0",
+    "sinon": "^15.2.0"
   },
   "engines": {
     "node": ">=20.12.0",
