@@ -15,25 +15,25 @@ const logger = createLogger("YEOGI");
  */
 function validateAndLogParsedContent(parsedContent, title) {
   const commonRequiredFields = [
-    "제휴점명",
-    "예약번호",
-    "결제일",
-    "체크인",
-    "체크아웃",
-    "투숙기간",
-    "고객명",
-    "연락처",
+    "partnerName", // 제휴점명
+    "reservationNumber", // 예약번호
+    "paymentDate", // 결제일
+    "checkInDate", // 체크인
+    "checkOutDate", // 체크아웃
+    "stayDuration", // 투숙기간
+    "customerName", // 고객명
+    "phoneNumber", // 연락처
   ];
 
   const statusSpecificFields = {
-    예약확정: ["객실명", "총판매가", "총입금가"],
-    예약대기: ["객실명"],
+    예약확정: ["roomName", "totalSellingPrice", "totalDepositAmount"], // 객실명, 총판매가, 총입금가
+    예약대기: ["roomName"], // 객실명
     예약취소: [],
   };
 
   let requiredFields = [...commonRequiredFields];
-  if (statusSpecificFields[parsedContent.예약상태]) {
-    requiredFields = [...requiredFields, ...statusSpecificFields[parsedContent.예약상태]];
+  if (statusSpecificFields[parsedContent.reservationStatus]) {
+    requiredFields = [...requiredFields, ...statusSpecificFields[parsedContent.reservationStatus]];
   }
 
   let isValid = true;
@@ -47,8 +47,8 @@ function validateAndLogParsedContent(parsedContent, title) {
   });
 
   // 예약대기 상태일 때 잔여객실 정보가 없어도 됨
-  if (parsedContent.예약상태 !== "예약대기" && !parsedContent.잔여객실) {
-    logger.warning("PARSING", `Warning: 잔여객실 is empty or missing`);
+  if (parsedContent.reservationStatus !== "예약대기" && !parsedContent.remainingRooms) {
+    logger.warning("PARSING", `Warning: remainingRooms is empty or missing`);
     isValid = false;
   }
 
@@ -93,43 +93,43 @@ function parseHtmlContent(html, title) {
   const $ = cheerio.load(html);
   let parsedContent = {
     platform: "여기어때",
-    예약상태: "",
-    제휴점명: "",
-    예약번호: "",
-    결제일: "",
-    체크인: "",
-    체크아웃: "",
-    투숙기간: "",
-    고객명: "",
-    연락처: "",
-    객실명: "",
-    잔여객실: "",
-    총판매가: "",
-    총입금가: "",
-    할인: "",
-    쿠폰: "",
-    포인트: "",
-    최종매출가: "",
-    전달사항: "",
+    reservationStatus: "", // 예약상태
+    partnerName: "", // 제휴점명
+    reservationNumber: "", // 예약번호
+    paymentDate: "", // 결제일
+    checkInDate: "", // 체크인
+    checkOutDate: "", // 체크아웃
+    stayDuration: "", // 투숙기간
+    customerName: "", // 고객명
+    phoneNumber: "", // 연락처
+    roomName: "", // 객실명
+    remainingRooms: "", // 잔여객실
+    totalSellingPrice: "", // 총판매가
+    totalDepositAmount: "", // 총입금가
+    discount: "", // 할인
+    coupon: "", // 쿠폰
+    point: "", // 포인트
+    finalSalesPrice: "", // 최종매출가
+    deliveryNote: "", // 전달사항
   };
 
   // 제목에서 예약 상태 파싱
   if (title.includes("예약 취소")) {
-    parsedContent.예약상태 = "예약취소";
+    parsedContent.reservationStatus = "예약취소";
   } else if (title.includes("예약대기 확인")) {
-    parsedContent.예약상태 = "예약대기";
+    parsedContent.reservationStatus = "예약대기";
   } else if (title.includes("예약대기 취소")) {
-    parsedContent.예약상태 = "예약대기취소";
+    parsedContent.reservationStatus = "예약대기취소";
   } else if (title.includes("예약 확정")) {
-    parsedContent.예약상태 = "예약확정";
+    parsedContent.reservationStatus = "예약확정";
   } else {
-    parsedContent.예약상태 = "알수없음";
+    parsedContent.reservationStatus = "알수없음";
   }
 
   // 제목에서 예약번호 파싱
   const reservationNumberMatch = title.match(/\d{14}YE1/);
   if (reservationNumberMatch) {
-    parsedContent.예약번호 = reservationNumberMatch[0];
+    parsedContent.reservationNumber = reservationNumberMatch[0];
   }
 
   // HTML에서 정보 추출
@@ -175,13 +175,13 @@ function parseHtmlTables($, parsedContent) {
   });
 
   // 객실명을 찾지 못한 경우 ul/li에서 추가 검색
-  if (!parsedContent.객실명) {
+  if (!parsedContent.roomName) {
     $("ul li").each((index, element) => {
       const text = $(element).text().trim();
       if (text.includes("객실명:")) {
         const match = text.match(/객실명:\s*([^]*?)(?=\s*$|\s*$)/);
         if (match && match[1]) {
-          parsedContent.객실명 = match[1].trim();
+          parsedContent.roomName = match[1].trim();
         }
       }
     });
@@ -200,12 +200,12 @@ function parsePartnerInfo($, table, parsedContent) {
     .each((i, row) => {
       const text = $(row).text().trim();
       if (text.includes("제휴점명")) {
-        parsedContent.제휴점명 = text.split(":")[1].trim();
-      } else if (text.includes("예약번호") && !parsedContent.예약번호) {
+        parsedContent.partnerName = text.split(":")[1].trim();
+      } else if (text.includes("예약번호") && !parsedContent.reservationNumber) {
         // 이미 제목에서 파싱한 예약번호가 없을 경우에만 업데이트
-        parsedContent.예약번호 = text.split(":")[1].trim();
+        parsedContent.reservationNumber = text.split(":")[1].trim();
       } else if (text.includes("결제일")) {
-        parsedContent.결제일 = text.split("결제일 :")[1].trim();
+        parsedContent.paymentDate = text.split("결제일 :")[1].trim();
       }
     });
 }
@@ -220,11 +220,11 @@ function parseReservationDetails($, table, parsedContent) {
   const rows = $(table).find("tr");
   if (rows.length >= 2) {
     const columns = rows.eq(1).find("td");
-    parsedContent.체크인 = columns.eq(0).text().replace(/\s+/g, " ").trim();
-    parsedContent.체크아웃 = columns.eq(1).text().replace(/\s+/g, " ").trim();
-    parsedContent.투숙기간 = columns.eq(2).text().trim();
-    parsedContent.고객명 = columns.eq(3).text().trim();
-    parsedContent.연락처 = columns.eq(4).text().trim();
+    parsedContent.checkInDate = columns.eq(0).text().replace(/\s+/g, " ").trim();
+    parsedContent.checkOutDate = columns.eq(1).text().replace(/\s+/g, " ").trim();
+    parsedContent.stayDuration = columns.eq(2).text().trim();
+    parsedContent.customerName = columns.eq(3).text().trim();
+    parsedContent.phoneNumber = columns.eq(4).text().trim();
   }
 }
 
@@ -237,9 +237,9 @@ function parseReservationDetails($, table, parsedContent) {
 function parseRoomInfo($, table, parsedContent) {
   const roomInfoText = $(table).find("tr").eq(0).find("td").eq(1).text().trim();
   const roomInfoParts = roomInfoText.split("잔여 객실");
-  parsedContent.객실명 = roomInfoParts[0].trim();
+  parsedContent.roomName = roomInfoParts[0].trim();
   if (roomInfoParts.length > 1) {
-    parsedContent.잔여객실 = roomInfoParts[1].trim();
+    parsedContent.remainingRooms = roomInfoParts[1].trim();
   }
 }
 
@@ -253,12 +253,12 @@ function parsePaymentInfo($, table, parsedContent) {
   const paymentRows = $(table).find("tr");
   if (paymentRows.length >= 2) {
     const columns = paymentRows.eq(1).find("td");
-    parsedContent.총판매가 = columns.eq(0).text().trim();
-    parsedContent.총입금가 = columns.eq(1).text().trim();
-    parsedContent.할인 = columns.eq(2).text().trim();
-    parsedContent.쿠폰 = columns.eq(3).text().trim();
-    parsedContent.포인트 = columns.eq(4).text().trim();
-    parsedContent.최종매출가 = columns.eq(5).text().trim();
+    parsedContent.totalSellingPrice = columns.eq(0).text().trim();
+    parsedContent.totalDepositAmount = columns.eq(1).text().trim();
+    parsedContent.discount = columns.eq(2).text().trim();
+    parsedContent.coupon = columns.eq(3).text().trim();
+    parsedContent.point = columns.eq(4).text().trim();
+    parsedContent.finalSalesPrice = columns.eq(5).text().trim();
   }
 }
 
@@ -269,7 +269,7 @@ function parsePaymentInfo($, table, parsedContent) {
  */
 function parseTransmissionSection($, parsedContent) {
   const transmissionSection = $('td:contains("전달사항")').next();
-  parsedContent.전달사항 = transmissionSection
+  parsedContent.deliveryNote = transmissionSection
     .find("li")
     .map((index, element) => $(element).text().trim())
     .get()
@@ -284,23 +284,23 @@ function parseTransmissionSection($, parsedContent) {
 function parseMessageContent(file) {
   let parsedContent = {
     platform: "여기어때",
-    예약상태: "",
-    제휴점명: "",
-    예약번호: "",
-    결제일: "",
-    체크인: "",
-    체크아웃: "",
-    투숙기간: "",
-    고객명: "",
-    연락처: "",
-    객실명: "",
-    총판매가: "",
-    총입금가: "",
-    할인: "",
-    쿠폰: "",
-    포인트: "",
-    최종매출가: "",
-    전달사항: "",
+    reservationStatus: "", // 예약상태
+    partnerName: "", // 제휴점명
+    reservationNumber: "", // 예약번호
+    paymentDate: "", // 결제일
+    checkInDate: "", // 체크인
+    checkOutDate: "", // 체크아웃
+    stayDuration: "", // 투숙기간
+    customerName: "", // 고객명
+    phoneNumber: "", // 연락처
+    roomName: "", // 객실명
+    totalSellingPrice: "", // 총판매가
+    totalDepositAmount: "", // 총입금가
+    discount: "", // 할인
+    coupon: "", // 쿠폰
+    point: "", // 포인트
+    finalSalesPrice: "", // 최종매출가
+    deliveryNote: "", // 전달사항
   };
 
   const text = file.plain_text;
@@ -313,9 +313,9 @@ function parseMessageContent(file) {
   parseTransmissionInfo(text, parsedContent);
 
   // 추가 메타데이터
-  parsedContent.이메일제목 = file.title || "";
-  parsedContent.첨부파일명 = file.name || "";
-  parsedContent.생성일시 = new Date(file.created * 1000).toISOString();
+  parsedContent.emailTitle = file.title || "";
+  parsedContent.attachmentName = file.name || "";
+  parsedContent.createdAt = new Date(file.created * 1000).toISOString();
 
   return parsedContent;
 }
@@ -330,35 +330,35 @@ function parseBasicInfo(lines, parsedContent) {
     const line = lines[i].trim();
 
     if (line.startsWith("제휴점명 :")) {
-      parsedContent.제휴점명 = line.split(":")[1].trim();
+      parsedContent.partnerName = line.split(":")[1].trim();
     } else if (line.startsWith("예약번호 :")) {
-      parsedContent.예약번호 = line.split(":")[1].trim();
+      parsedContent.reservationNumber = line.split(":")[1].trim();
     } else if (line.startsWith("결제일 :")) {
-      parsedContent.결제일 = line.split(":")[1].trim();
+      parsedContent.paymentDate = line.split(":")[1].trim();
     } else if (line.startsWith("체크인")) {
-      parsedContent.체크인 = lines[i + 1].trim();
+      parsedContent.checkInDate = lines[i + 1].trim();
     } else if (line.startsWith("체크아웃")) {
-      parsedContent.체크아웃 = lines[i + 1].trim();
+      parsedContent.checkOutDate = lines[i + 1].trim();
     } else if (line.startsWith("투숙기간")) {
-      parsedContent.투숙기간 = lines[i + 1].trim();
+      parsedContent.stayDuration = lines[i + 1].trim();
     } else if (line.startsWith("고객명")) {
-      parsedContent.고객명 = lines[i + 1].trim();
+      parsedContent.customerName = lines[i + 1].trim();
     } else if (line.startsWith("연락처")) {
-      parsedContent.연락처 = lines[i + 1].trim();
+      parsedContent.phoneNumber = lines[i + 1].trim();
     } else if (line.startsWith("객실명")) {
-      parsedContent.객실명 = lines[i + 1].trim();
+      parsedContent.roomName = lines[i + 1].trim();
     } else if (line.includes("총 판매가")) {
-      parsedContent.총판매가 = line.split("총 판매가")[1].trim();
+      parsedContent.totalSellingPrice = line.split("총 판매가")[1].trim();
     } else if (line.includes("총 입금가")) {
-      parsedContent.총입금가 = line.split("총 입금가")[1].trim();
+      parsedContent.totalDepositAmount = line.split("총 입금가")[1].trim();
     } else if (line.includes("할인")) {
-      parsedContent.할인 = line.split("할인")[1].trim();
+      parsedContent.discount = line.split("할인")[1].trim();
     } else if (line.includes("쿠폰")) {
-      parsedContent.쿠폰 = line.split("쿠폰")[1].trim();
+      parsedContent.coupon = line.split("쿠폰")[1].trim();
     } else if (line.includes("포인트")) {
-      parsedContent.포인트 = line.split("포인트")[1].trim();
+      parsedContent.point = line.split("포인트")[1].trim();
     } else if (line.includes("최종 매출가")) {
-      parsedContent.최종매출가 = line.split("최종 매출가")[1].trim();
+      parsedContent.finalSalesPrice = line.split("최종 매출가")[1].trim();
     }
   }
 }
@@ -369,11 +369,13 @@ function parseBasicInfo(lines, parsedContent) {
  * @param {Object} parsedContent - 파싱 결과 객체
  */
 function parseTransmissionInfo(text, parsedContent) {
-  const 전달사항Index = text.indexOf("전달사항");
-  if (전달사항Index !== -1) {
-    const 전달사항End = text.indexOf("파트너센터 URL:", 전달사항Index);
-    if (전달사항End !== -1) {
-      parsedContent.전달사항 = text.slice(전달사항Index + "전달사항".length, 전달사항End).trim();
+  const deliveryNoteIndex = text.indexOf("전달사항");
+  if (deliveryNoteIndex !== -1) {
+    const deliveryNoteEnd = text.indexOf("파트너센터 URL:", deliveryNoteIndex);
+    if (deliveryNoteEnd !== -1) {
+      parsedContent.deliveryNote = text
+        .slice(deliveryNoteIndex + "전달사항".length, deliveryNoteEnd)
+        .trim();
     }
   }
 }

@@ -12,27 +12,27 @@ const logger = createLogger("AIRBNB");
  */
 function validateAndLogParsedContent(parsedContent, title) {
   const commonRequiredFields = [
-    "예약상태",
-    "숙소명",
-    "예약번호",
-    "게스트",
-    "예약상세URL",
-    "메시지",
-    "예약인원",
-    "총결제금액",
-    "호스트수익",
-    "서비스수수료",
+    "reservationStatus", // 예약상태
+    "accommodationName", // 숙소명
+    "reservationNumber", // 예약번호
+    "guestName", // 게스트
+    "reservationDetailUrl", // 예약상세URL
+    "message", // 메시지
+    "guestCount", // 예약인원
+    "totalAmount", // 총결제금액
+    "hostEarnings", // 호스트수익
+    "serviceFee", // 서비스수수료
   ];
 
   const statusSpecificFields = {
-    예약확정: ["체크인", "체크아웃", "체크인시간", "체크아웃시간"],
-    예약대기: ["체크인", "체크아웃", "체크인시간", "체크아웃시간"],
+    예약확정: ["checkInDate", "checkOutDate", "checkInTime", "checkOutTime"], // 체크인, 체크아웃, 체크인시간, 체크아웃시간
+    예약대기: ["checkInDate", "checkOutDate", "checkInTime", "checkOutTime"], // 체크인, 체크아웃, 체크인시간, 체크아웃시간
     예약취소: [],
   };
 
   let requiredFields = [...commonRequiredFields];
-  if (statusSpecificFields[parsedContent.예약상태]) {
-    requiredFields = [...requiredFields, ...statusSpecificFields[parsedContent.예약상태]];
+  if (statusSpecificFields[parsedContent.reservationStatus]) {
+    requiredFields = [...requiredFields, ...statusSpecificFields[parsedContent.reservationStatus]];
   }
 
   let isValid = true;
@@ -177,31 +177,31 @@ function parseCancelledReservation(text, parsedContent) {
   // 예약번호 파싱
   const reservationNumberMatch = text.match(/예약\(([A-Z0-9]+)\)/);
   if (reservationNumberMatch) {
-    parsedContent.예약번호 = reservationNumberMatch[1];
+    parsedContent.reservationNumber = reservationNumberMatch[1];
   }
 
   // 게스트 정보 파싱
   const guestMatch = text.match(/게스트\s+([^\s]+)\s+님이/);
   if (guestMatch) {
-    parsedContent.게스트 = guestMatch[1];
+    parsedContent.guestName = guestMatch[1];
   }
 
   // 예약 인원 파싱
   const guestsMatch = text.match(/숙박\s+인원\s+(\d+)\s*명/);
   if (guestsMatch) {
-    parsedContent.예약인원 = guestsMatch[1];
+    parsedContent.guestCount = guestsMatch[1];
   }
 
   // 호스트 수익 파싱
   const amountMatch = text.match(/변경\s+후\s+금액:\s*₩([\d,]+)/);
   if (amountMatch) {
-    parsedContent.호스트수익 = amountMatch[1];
+    parsedContent.hostEarnings = amountMatch[1];
   }
 
   // URL 파싱
   const urlMatch = text.match(/https:\/\/www\.airbnb\.co\.kr\/hosting\/reservations\/[^\s]+/);
   if (urlMatch) {
-    parsedContent.예약상세URL = urlMatch[0];
+    parsedContent.reservationDetailUrl = urlMatch[0];
   }
 
   // 체크인/아웃 날짜 파싱
@@ -228,8 +228,8 @@ function parseCancelledDates(text, parsedContent) {
       checkOutDate = checkInMonth + " " + checkOutDate;
     }
 
-    parsedContent.체크인 = `${year} ${checkInDate}`;
-    parsedContent.체크아웃 = `${year} ${checkOutDate}`;
+    parsedContent.checkInDate = `${year} ${checkInDate}`;
+    parsedContent.checkOutDate = `${year} ${checkOutDate}`;
     return;
   }
 
@@ -237,8 +237,8 @@ function parseCancelledDates(text, parsedContent) {
   const fullDatePattern = /(\d{4}년\s+\d+월\s+\d+일)/g;
   const dates = text.match(fullDatePattern);
   if (dates && dates.length >= 2) {
-    parsedContent.체크인 = dates[0];
-    parsedContent.체크아웃 = dates[1];
+    parsedContent.checkInDate = dates[0];
+    parsedContent.checkOutDate = dates[1];
   }
 }
 
@@ -262,13 +262,13 @@ function parseRegularReservation(text, title, parsedContent) {
   // URL 파싱
   const urlMatch = text.match(/https:\/\/www\.airbnb\.co\.kr\/hosting\/reservations\/details\/\w+/);
   if (urlMatch) {
-    parsedContent.예약상세URL = urlMatch[0];
+    parsedContent.reservationDetailUrl = urlMatch[0];
   }
 
   // 예약 인원 파싱
   const guestsMatch = text.match(/성인\s+(\d+)명/);
   if (guestsMatch) {
-    parsedContent.예약인원 = guestsMatch[1];
+    parsedContent.guestCount = guestsMatch[1];
   }
 
   // 결제 정보 파싱
@@ -291,7 +291,7 @@ function parseGuestInfo(text, parsedContent) {
   for (const pattern of guestPatterns) {
     const match = text.match(pattern);
     if (match) {
-      parsedContent.게스트 = match[1].trim();
+      parsedContent.guestName = match[1].trim();
       break;
     }
   }
@@ -312,7 +312,7 @@ function parseReservationNumber(text, parsedContent) {
   for (const pattern of reservationNumberPatterns) {
     const match = text.match(pattern);
     if (match) {
-      parsedContent.예약번호 = match[1];
+      parsedContent.reservationNumber = match[1];
       break;
     }
   }
@@ -325,9 +325,9 @@ function parseReservationNumber(text, parsedContent) {
  */
 function parsePaymentInfo(text, parsedContent) {
   const paymentMatches = {
-    총결제금액: /총\s+금액\(KRW\)\s+₩([\d,]+)/,
-    호스트수익: /호스트\s+수익\s+₩([\d,]+)/,
-    서비스수수료: /호스트\s+서비스\s+수수료\([^)]+\)\s+-₩([\d,]+)/,
+    totalAmount: /총\s+금액\(KRW\)\s+₩([\d,]+)/,
+    hostEarnings: /호스트\s+수익\s+₩([\d,]+)/,
+    serviceFee: /호스트\s+서비스\s+수수료\([^)]+\)\s+-₩([\d,]+)/,
   };
 
   for (const [field, pattern] of Object.entries(paymentMatches)) {
@@ -348,35 +348,35 @@ function parseMessageContent(file, title) {
   const text = file.plain_text;
   let parsedContent = {
     platform: "에어비앤비",
-    예약상태: determineReservationStatus(title),
-    숙소명: "",
-    체크인: "",
-    체크아웃: "",
-    예약번호: "",
-    게스트: "",
-    예약상세URL: "",
-    메시지: text.substring(0, 200) + "...", // 메시지 일부만 저장
-    예약인원: "",
-    총결제금액: "",
-    호스트수익: "",
-    서비스수수료: "",
-    체크인시간: "",
-    체크아웃시간: "",
+    reservationStatus: determineReservationStatus(title), // 예약상태
+    accommodationName: "", // 숙소명
+    checkInDate: "", // 체크인
+    checkOutDate: "", // 체크아웃
+    reservationNumber: "", // 예약번호
+    guestName: "", // 게스트
+    reservationDetailUrl: "", // 예약상세URL
+    message: text.substring(0, 200) + "...", // 메시지 일부만 저장
+    guestCount: "", // 예약인원
+    totalAmount: "", // 총결제금액
+    hostEarnings: "", // 호스트수익
+    serviceFee: "", // 서비스수수료
+    checkInTime: "", // 체크인시간
+    checkOutTime: "", // 체크아웃시간
   };
 
   // 숙소명 파싱
-  parsedContent.숙소명 = parseAccommodationName(text);
+  parsedContent.accommodationName = parseAccommodationName(text);
 
   // 예약 상태에 따른 파싱 로직 선택
-  if (parsedContent.예약상태 === "예약취소") {
+  if (parsedContent.reservationStatus === "예약취소") {
     parseCancelledReservation(text, parsedContent);
   } else {
     parseRegularReservation(text, title, parsedContent);
   }
 
   // 체크인/아웃 시간 기본값 설정
-  if (!parsedContent.체크인시간) parsedContent.체크인시간 = "오후 4:00";
-  if (!parsedContent.체크아웃시간) parsedContent.체크아웃시간 = "오전 11:00";
+  if (!parsedContent.checkInTime) parsedContent.checkInTime = "오후 4:00";
+  if (!parsedContent.checkOutTime) parsedContent.checkOutTime = "오전 11:00";
 
   return parsedContent;
 }

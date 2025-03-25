@@ -11,36 +11,36 @@ const logger = createLogger("YANOLJA");
  */
 function validateAndLogParsedContent(parsedContent) {
   const commonRequiredFields = [
-    "수신날짜",
-    "발신번호",
-    "발신자",
-    "수신번호",
-    "수신자",
-    "예약상태",
-    "펜션명",
-    "예약번호",
-    "예약자",
-    "객실명",
-    "입실일",
-    "퇴실일",
-    "이용기간",
-    "판매가격",
+    "receivedDate", // 수신날짜
+    "senderNumber", // 발신번호
+    "senderName", // 발신자
+    "receiverNumber", // 수신번호
+    "receiverName", // 수신자
+    "reservationStatus", // 예약상태
+    "pensionName", // 펜션명
+    "reservationNumber", // 예약번호
+    "guestName", // 예약자
+    "roomName", // 객실명
+    "checkInDay", // 입실일
+    "checkOutDay", // 퇴실일
+    "stayDuration", // 이용기간
+    "sellingPrice", // 판매가격
   ];
 
   const statusSpecificFields = {
-    예약확정: ["픽업여부", "연락처"],
+    예약확정: ["pickupStatus", "phoneNumber"], // 픽업여부, 연락처
     예약취소: [],
-    기타: ["연락처"],
+    기타: ["phoneNumber"], // 연락처
   };
 
   let requiredFields = [...commonRequiredFields];
-  if (statusSpecificFields[parsedContent.예약상태]) {
-    requiredFields = [...requiredFields, ...statusSpecificFields[parsedContent.예약상태]];
+  if (statusSpecificFields[parsedContent.reservationStatus]) {
+    requiredFields = [...requiredFields, ...statusSpecificFields[parsedContent.reservationStatus]];
   }
 
   let isValid = true;
 
-  logger.warning("PARSING", `[야놀자] 예약번호: ${parsedContent.예약번호}`);
+  logger.warning("PARSING", `[야놀자] 예약번호: ${parsedContent.reservationNumber}`);
   requiredFields.forEach((field) => {
     if (!parsedContent[field]) {
       logger.warning("PARSING", `Warning: ${field} is empty or missing`);
@@ -81,22 +81,22 @@ function parseMessageContent(text) {
   const lines = text.split("\n");
   let parsedContent = {
     platform: "야놀자",
-    수신날짜: "",
-    발신번호: "",
-    발신자: "",
-    수신번호: "",
-    수신자: "",
-    예약상태: "",
-    펜션명: "",
-    예약번호: "",
-    예약자: "",
-    연락처: "",
-    객실명: "",
-    입실일: "",
-    퇴실일: "",
-    이용기간: "",
-    판매가격: "",
-    픽업여부: "",
+    receivedDate: "", // 수신날짜
+    senderNumber: "", // 발신번호
+    senderName: "", // 발신자
+    receiverNumber: "", // 수신번호
+    receiverName: "", // 수신자
+    reservationStatus: "", // 예약상태
+    pensionName: "", // 펜션명
+    reservationNumber: "", // 예약번호
+    guestName: "", // 예약자
+    phoneNumber: "", // 연락처
+    roomName: "", // 객실명
+    checkInDay: "", // 입실일
+    checkOutDay: "", // 퇴실일
+    stayDuration: "", // 이용기간
+    sellingPrice: "", // 판매가격
+    pickupStatus: "", // 픽업여부
   };
 
   // 헤더 정보 파싱
@@ -119,15 +119,15 @@ function parseMessageContent(text) {
 function parseHeaderInfo(lines, parsedContent) {
   lines.forEach((line) => {
     if (line.includes("[수신날짜]")) {
-      parsedContent.수신날짜 = line.split("]")[1].trim();
+      parsedContent.receivedDate = line.split("]")[1].trim();
     } else if (line.includes("[발신번호]")) {
       const parts = line.split("]")[1].split("(");
-      parsedContent.발신번호 = parts[0].trim();
-      parsedContent.발신자 = parts[1] ? parts[1].replace(")", "").trim() : "";
+      parsedContent.senderNumber = parts[0].trim();
+      parsedContent.senderName = parts[1] ? parts[1].replace(")", "").trim() : "";
     } else if (line.includes("[수신번호]")) {
       const parts = line.split("]")[1].split("[");
-      parsedContent.수신번호 = parts[0].trim();
-      parsedContent.수신자 = parts[1] ? parts[1].replace("]", "").trim() : "";
+      parsedContent.receiverNumber = parts[0].trim();
+      parsedContent.receiverName = parts[1] ? parts[1].replace("]", "").trim() : "";
     }
   });
 }
@@ -141,11 +141,11 @@ function parseReservationStatus(lines, parsedContent) {
   lines.forEach((line) => {
     if (line.includes("[야놀자펜션 - ")) {
       if (line.includes("예약완료")) {
-        parsedContent.예약상태 = "예약확정";
+        parsedContent.reservationStatus = "예약확정";
       } else if (line.includes("예약취소")) {
-        parsedContent.예약상태 = "예약취소";
+        parsedContent.reservationStatus = "예약취소";
       } else {
-        parsedContent.예약상태 = "알수없음";
+        parsedContent.reservationStatus = "알수없음";
       }
     }
   });
@@ -158,16 +158,16 @@ function parseReservationStatus(lines, parsedContent) {
  */
 function parseReservationDetails(lines, parsedContent) {
   const fieldMappings = {
-    "펜션명 :": "펜션명",
-    "야놀자펜션 예약번호 :": "예약번호",
-    "예약자 :": "예약자",
-    "연락처 :": "연락처",
-    "객실명 :": "객실명",
-    "입실일 :": "입실일",
-    "퇴실일 :": "퇴실일",
-    "이용기간:": "이용기간",
-    "판매가격:": "판매가격",
-    "픽업여부:": "픽업여부",
+    "펜션명 :": "pensionName",
+    "야놀자펜션 예약번호 :": "reservationNumber",
+    "예약자 :": "guestName",
+    "연락처 :": "phoneNumber",
+    "객실명 :": "roomName",
+    "입실일 :": "checkInDay",
+    "퇴실일 :": "checkOutDay",
+    "이용기간:": "stayDuration",
+    "판매가격:": "sellingPrice",
+    "픽업여부:": "pickupStatus",
   };
 
   lines.forEach((line) => {

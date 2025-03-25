@@ -54,66 +54,128 @@ function standardizeData(parsedMessage, message) {
     const platformSpecificFields = {};
 
     if (parsedMessage.platform === "야놀자") {
-      platformSpecificFields.sender = parsedMessage.발신자 || "";
-      platformSpecificFields.sender_number = parsedMessage.발신번호 || "";
-      platformSpecificFields.receiver = parsedMessage.수신자 || "";
-      platformSpecificFields.receiver_number = parsedMessage.수신번호 || "";
-      platformSpecificFields.received_date = formatDateForDB(parsedMessage.수신날짜);
+      platformSpecificFields.sender = parsedMessage.senderName || parsedMessage.발신자 || "";
+      platformSpecificFields.sender_number =
+        parsedMessage.senderNumber || parsedMessage.발신번호 || "";
+      platformSpecificFields.receiver = parsedMessage.receiverName || parsedMessage.수신자 || "";
+      platformSpecificFields.receiver_number =
+        parsedMessage.receiverNumber || parsedMessage.수신번호 || "";
+      platformSpecificFields.received_date = formatDateForDB(
+        parsedMessage.receivedDate || parsedMessage.수신날짜
+      );
     }
 
     // 표준화된 데이터 객체 생성
     return {
       platform: parsedMessage.platform,
-      reservation_status: parsedMessage.예약상태,
+      reservation_status: parsedMessage.reservationStatus || parsedMessage.예약상태,
       accommodation_name:
-        parsedMessage.숙소명 || parsedMessage.펜션명 || parsedMessage.제휴점명 || "",
-      reservation_number: parsedMessage.예약번호 || "",
-      guest_name: parsedMessage.게스트 || parsedMessage.예약자 || parsedMessage.고객명 || "",
+        parsedMessage.accommodationName ||
+        parsedMessage.숙소명 ||
+        parsedMessage.pensionName ||
+        parsedMessage.펜션명 ||
+        parsedMessage.partnerName ||
+        parsedMessage.제휴점명 ||
+        "",
+      reservation_number: parsedMessage.reservationNumber || parsedMessage.예약번호 || "",
+      guest_name:
+        parsedMessage.guestName ||
+        parsedMessage.게스트 ||
+        parsedMessage.예약자 ||
+        parsedMessage.customerName ||
+        parsedMessage.고객명 ||
+        "",
       final_guest_name: formatGuestName(
         parsedMessage.platform,
-        parsedMessage.게스트 || parsedMessage.예약자 || parsedMessage.고객명 || ""
+        parsedMessage.guestName ||
+          parsedMessage.게스트 ||
+          parsedMessage.예약자 ||
+          parsedMessage.customerName ||
+          parsedMessage.고객명 ||
+          ""
       ),
-      guest_phone: parsedMessage.연락처 || parsedMessage.휴대전화번호 || "",
-      room_name: parsedMessage.객실명 || "",
+      guest_phone:
+        parsedMessage.phoneNumber ||
+        parsedMessage.연락처 ||
+        parsedMessage.mobileNumber ||
+        parsedMessage.휴대전화번호 ||
+        "",
+      room_name: parsedMessage.roomName || parsedMessage.객실명 || "",
       final_room_name: formatRoomName(
         parsedMessage.platform,
-        parsedMessage.객실명,
-        parsedMessage.숙소명
+        parsedMessage.roomName || parsedMessage.객실명,
+        parsedMessage.accommodationName || parsedMessage.숙소명
       ),
-      check_in_date: parsedMessage.체크인 || parsedMessage.입실일 || "",
-      check_out_date: parsedMessage.체크아웃 || parsedMessage.퇴실일 || "",
+      check_in_date:
+        parsedMessage.checkInDate ||
+        parsedMessage.체크인 ||
+        parsedMessage.checkInDay ||
+        parsedMessage.입실일 ||
+        "",
+      check_out_date:
+        parsedMessage.checkOutDate ||
+        parsedMessage.체크아웃 ||
+        parsedMessage.checkOutDay ||
+        parsedMessage.퇴실일 ||
+        "",
       final_check_in_date: formatDate(
         parsedMessage.platform,
-        parsedMessage.체크인 || parsedMessage.입실일,
-        parsedMessage.예약상태
+        parsedMessage.checkInDate ||
+          parsedMessage.체크인 ||
+          parsedMessage.checkInDay ||
+          parsedMessage.입실일,
+        parsedMessage.reservationStatus || parsedMessage.예약상태
       ),
       final_check_out_date: formatDate(
         parsedMessage.platform,
-        parsedMessage.체크아웃 || parsedMessage.퇴실일,
-        parsedMessage.예약상태
+        parsedMessage.checkOutDate ||
+          parsedMessage.체크아웃 ||
+          parsedMessage.checkOutDay ||
+          parsedMessage.퇴실일,
+        parsedMessage.reservationStatus || parsedMessage.예약상태
       ),
-      guests: parseInt(parsedMessage.예약인원 || parsedMessage.인원 || 0, 10) || null,
+      guests:
+        parseInt(
+          parsedMessage.guestCount ||
+            parsedMessage.예약인원 ||
+            parsedMessage.guests ||
+            parsedMessage.인원 ||
+            0,
+          10
+        ) || null,
       total_price: convertToNumber(
-        parsedMessage.총결제금액 ||
+        parsedMessage.totalAmount ||
+          parsedMessage.총결제금액 ||
+          parsedMessage.totalSellingPrice ||
           parsedMessage.총판매가 ||
+          parsedMessage.paymentAmount ||
           parsedMessage.결제금액 ||
+          parsedMessage.sellingPrice ||
           parsedMessage.판매가격
       ),
-      discount: convertToNumber(parsedMessage.할인),
-      coupon: convertToNumber(parsedMessage.쿠폰),
-      point: convertToNumber(parsedMessage.포인트),
-      final_price: convertToNumber(parsedMessage.최종매출가),
-      host_earnings: convertToNumber(parsedMessage.호스트수익),
-      service_fee: convertToNumber(parsedMessage.서비스수수료),
-      tax: convertToNumber(parsedMessage.숙박세),
-      request: parsedMessage.요청사항 || parsedMessage.전달사항 || parsedMessage.메시지 || "",
-      pickup_status: parsedMessage.픽업여부 || "",
-      remaining_rooms: parsedMessage.잔여객실 || "",
-      reservation_details_url: parsedMessage.예약상세URL || "",
-      message: parsedMessage.메시지 || "",
-      check_in_time: parsedMessage.체크인시간 || "",
-      check_out_time: parsedMessage.체크아웃시간 || "",
-      payment_date: parsedMessage.결제일 || "",
+      discount: convertToNumber(parsedMessage.discount || parsedMessage.할인),
+      coupon: convertToNumber(parsedMessage.coupon || parsedMessage.쿠폰),
+      point: convertToNumber(parsedMessage.point || parsedMessage.포인트),
+      final_price: convertToNumber(parsedMessage.finalSalesPrice || parsedMessage.최종매출가),
+      host_earnings: convertToNumber(parsedMessage.hostEarnings || parsedMessage.호스트수익),
+      service_fee: convertToNumber(parsedMessage.serviceFee || parsedMessage.서비스수수료),
+      tax: convertToNumber(parsedMessage.tax || parsedMessage.숙박세),
+      request:
+        parsedMessage.requestMessage ||
+        parsedMessage.요청사항 ||
+        parsedMessage.deliveryNote ||
+        parsedMessage.전달사항 ||
+        parsedMessage.message ||
+        parsedMessage.메시지 ||
+        "",
+      pickup_status: parsedMessage.pickupStatus || parsedMessage.픽업여부 || "",
+      remaining_rooms: parsedMessage.remainingRooms || parsedMessage.잔여객실 || "",
+      reservation_details_url:
+        parsedMessage.reservationDetailUrl || parsedMessage.예약상세URL || "",
+      message: parsedMessage.message || parsedMessage.메시지 || "",
+      check_in_time: parsedMessage.checkInTime || parsedMessage.체크인시간 || "",
+      check_out_time: parsedMessage.checkOutTime || parsedMessage.체크아웃시간 || "",
+      payment_date: parsedMessage.paymentDate || parsedMessage.결제일 || "",
       message_sent: false, // 기본값 설정
       ts_unixtime: parseFloat(message.ts) || null,
       ts_korea_time: formatTsKoreaTime(

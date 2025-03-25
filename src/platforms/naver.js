@@ -16,13 +16,13 @@ const logger = createLogger("NAVER");
 function validateAndLogParsedContent(parsedContent, title) {
   const requiredFields = [
     "platform",
-    "예약상태",
-    "예약번호",
-    "예약자",
-    "객실명",
-    "체크인",
-    "체크아웃",
-    "결제금액",
+    "reservationStatus",
+    "reservationNumber",
+    "guestName",
+    "roomName",
+    "checkInDate",
+    "checkOutDate",
+    "paymentAmount",
   ];
 
   let isValid = true;
@@ -48,30 +48,30 @@ function parseHtmlContent(html, title) {
   const $ = cheerio.load(html);
   let parsedContent = {
     platform: "네이버",
-    예약상태: "",
-    예약번호: "",
-    예약자: "",
-    연락처: "",
-    객실명: "",
-    체크인: "",
-    체크아웃: "",
-    인원: "",
-    결제금액: "",
-    요청사항: "",
+    reservationStatus: "",
+    reservationNumber: "",
+    guestName: "",
+    phoneNumber: "",
+    roomName: "",
+    checkInDate: "",
+    checkOutDate: "",
+    guestCount: "",
+    paymentAmount: "",
+    requestMessage: "",
   };
 
   // 제목에서 예약 상태 파싱
   if (title.includes("예약을 취소")) {
-    parsedContent.예약상태 = "예약취소";
+    parsedContent.reservationStatus = "예약취소";
   } else if (title.includes("새로운 예약이 접수")) {
-    parsedContent.예약상태 = "예약대기";
+    parsedContent.reservationStatus = "예약대기";
   } else if (
     title.includes("새로운 예약이 확정") ||
     title.includes("입금이 완료되어 예약이 확정")
   ) {
-    parsedContent.예약상태 = "예약확정";
+    parsedContent.reservationStatus = "예약확정";
   } else {
-    parsedContent.예약상태 = "알수없음";
+    parsedContent.reservationStatus = "알수없음";
   }
 
   // 예약자 정보 추출
@@ -80,33 +80,33 @@ function parseHtmlContent(html, title) {
 
     switch (text) {
       case "예약자명":
-        parsedContent.예약자 = $(element).next().text().trim().replace("님", "");
+        parsedContent.guestName = $(element).next().text().trim().replace("님", "");
         break;
       case "예약번호":
-        parsedContent.예약번호 = $(element).next().text().trim().split(" ")[0];
+        parsedContent.reservationNumber = $(element).next().text().trim().split(" ")[0];
         break;
       case "예약상품":
-        parsedContent.객실명 = $(element).next().text().trim();
+        parsedContent.roomName = $(element).next().text().trim();
         break;
       case "이용일시":
-        const 이용일시 = $(element).next().text().trim();
-        const match = 이용일시.match(
+        const usageDateTime = $(element).next().text().trim();
+        const match = usageDateTime.match(
           /(\d{4}\.\d{2}\.\d{2})\.\(.+?\)~(\d{4}\.\d{2}\.\d{2})\.\(.+?\)/
         );
         if (match) {
-          parsedContent.체크인 = match[1];
-          parsedContent.체크아웃 = match[2];
+          parsedContent.checkInDate = match[1];
+          parsedContent.checkOutDate = match[2];
         }
         break;
       case "결제금액":
-        const 결제금액Text = $(element).next().text().trim();
-        const priceMatch = 결제금액Text.match(/(\d{1,3}(,\d{3})*원)/);
+        const paymentText = $(element).next().text().trim();
+        const priceMatch = paymentText.match(/(\d{1,3}(,\d{3})*원)/);
         if (priceMatch) {
-          parsedContent.결제금액 = priceMatch[1];
+          parsedContent.paymentAmount = priceMatch[1];
         }
         break;
       case "요청사항":
-        parsedContent.요청사항 = $(element).next().text().trim();
+        parsedContent.requestMessage = $(element).next().text().trim();
         break;
     }
   });
