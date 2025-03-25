@@ -2,8 +2,8 @@
  * 네이버 예약 메시지 파싱 모듈
  */
 const cheerio = require("cheerio");
-const { createLogger } = require("../utils/logger");
-const { downloadAndReadHtml } = require("../utils/fileDownloader");
+const { createLogger } = require("../utils/logging/logger");
+const { downloadAndReadHtml } = require("../utils/slack/fileDownloader");
 
 const logger = createLogger("NAVER");
 

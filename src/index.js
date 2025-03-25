@@ -2,22 +2,30 @@
  * Slack 예약 메시지 수집 및 처리 메인 애플리케이션
  */
 const config = require("../config/config");
-const { validateConfig } = require("./utils/configValidator");
-const { getChannelHistory } = require("./utils/slackClient");
-const { getLastReadTs, saveLastReadTs } = require("./utils/fileHandler");
-const { logMessageToFile } = require("./utils/messageLogger");
-const { testConnection, saveReservation, initializeSchema } = require("./utils/db");
-const { standardizeData } = require("./utils/dataStandardizer");
+const {
+  validateConfig,
+  getChannelHistory,
+  getLastReadTs,
+  saveLastReadTs,
+  logMessageToFile,
+  testConnection,
+  saveReservation,
+  initializeSchema,
+  standardizeData,
+  handleError,
+  monitor,
+  reservationCache,
+  createBackup,
+  cleanOldBackups,
+} = require("./utils");
+
 const { parseYanoljaMessage } = require("./platforms/yanolja");
 const { parseNaverBookingMessage } = require("./platforms/naverbooking");
 const { parseAirbnbMessage } = require("./platforms/airbnb");
 const { parseYeogiMessage } = require("./platforms/yeogi");
 const { startServer } = require("./api/server");
 const cron = require("node-cron");
-const { createLogger } = require("./utils/logger");
-const { handleError } = require("./utils/errorHandler");
-const { monitor } = require("./utils/monitor");
-const { reservationCache } = require("./utils/cache");
+const { createLogger } = require("./utils/logging/logger");
 
 const logger = createLogger("SLACK_COLLECTOR");
 
