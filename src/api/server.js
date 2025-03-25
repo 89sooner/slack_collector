@@ -5,7 +5,7 @@ const express = require("express");
 const cors = require("cors");
 const helmet = require("helmet");
 const config = require("../../config/config");
-const { createLogger } = require("../utils/logger");
+const { createLogger } = require("../utils/logging/logger");
 const { executeQuery } = require("../utils/db");
 const { monitor } = require("../utils/monitor");
 

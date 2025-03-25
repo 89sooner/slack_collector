@@ -119,7 +119,7 @@ function parseHtmlContent(html, title) {
  * @param {Object} message - Slack 메시지 객체
  * @returns {Promise<Object|null>} 파싱된 네이버 예약 데이터 또는 null
  */
-async function parseNaverBookingMessage(message) {
+async function parseNaverMessage(message) {
   if (message.files && message.files.length > 0) {
     const file = message.files[0];
     if (file.url_private_download) {
@@ -138,4 +138,4 @@ async function parseNaverBookingMessage(message) {
   return null;
 }
 
-module.exports = { parseNaverBookingMessage };
+module.exports = { parseNaverMessage };

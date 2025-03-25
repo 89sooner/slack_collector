@@ -11,6 +11,8 @@ const config = require("./config");
 const format = require("./format");
 const file = require("./file");
 const monitor = require("./monitor");
+const date = require("./date");
+const validation = require("./validation");
 
 module.exports = {
   ...db,
@@ -21,4 +23,6 @@ module.exports = {
   ...format,
   ...file,
   ...monitor,
+  ...date,
+  ...validation,
 };

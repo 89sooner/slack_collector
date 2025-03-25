@@ -20,7 +20,7 @@ const {
 } = require("./utils");
 
 const { parseYanoljaMessage } = require("./platforms/yanolja");
-const { parseNaverBookingMessage } = require("./platforms/naverbooking");
+const { parseNaverMessage } = require("./platforms/naver");
 const { parseAirbnbMessage } = require("./platforms/airbnb");
 const { parseYeogiMessage } = require("./platforms/yeogi");
 const { startServer } = require("./api/server");
@@ -154,7 +154,7 @@ async function checkAllChannels() {
   try {
     await Promise.all([
       processMessages(config.CHANNEL_ID_YANOLJA, parseYanoljaMessage),
-      processMessages(config.CHANNEL_ID_NAVER_BOOKING, parseNaverBookingMessage),
+      processMessages(config.CHANNEL_ID_NAVER_BOOKING, parseNaverMessage),
       processMessages(config.CHANNEL_ID_AIRBNB, parseAirbnbMessage),
       processMessages(config.CHANNEL_ID_YEOGI, parseYeogiMessage),
     ]);

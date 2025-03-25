@@ -1,7 +1,7 @@
 /**
  * 야놀자 예약 메시지 파싱 모듈
  */
-const { createLogger } = require("../utils/logger");
+const { createLogger } = require("../utils/logging/logger");
 const logger = createLogger("YANOLJA");
 
 /**
