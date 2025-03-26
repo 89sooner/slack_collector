@@ -114,7 +114,6 @@ function formatDate(platform, dateStr, status) {
 function formatRoomName(platform, roomName, accommodationName) {
   if (platform === "에어비앤비") {
 
-    console.log(accommodationName)
     if (accommodationName) {
       // accommodationName이 객체인 경우 name 속성 사용
       let nameStr = typeof accommodationName === 'object' && accommodationName !== null 

@@ -119,49 +119,64 @@ function parseCheckInOut(text, title) {
 }
 
 /**
- * 숙소명을 파싱합니다
+ * 공통 숙소명 파싱 로직
  * @param {string} text - 파싱할 전체 텍스트
- * @returns {string} 파싱된 숙소명
+ * @returns {Object|null} - 파싱된 숙소 정보 객체
  */
-function parseAccommodationName(text) {
+function extractAccommodationInfo(text, isLineText = false) {
   if (!text) return null;
 
-  // 숙소 이름 패턴 찾기 (한정세일로 시작하고 카이브가 포함된 패턴)
-  const nameRegex = /\[한정세일\]\s+카이브\s*(?:No\.|NO\.|No)?\.?\s*(\d+)\s+([^|]+)/i;
-  const nameMatch = text.match(nameRegex);
+  // 다양한 숙소명 패턴들
+  const patterns = [
+    // [한정세일] 카이브No.X 패턴
+    /\[한정세일\]\s+카이브(?:No\.|NO\.|no\.|\s)?\.?\s*(\d+)\s+([^|]+)/i,
+    // 카이브No.X 패턴 (한정세일 없음)
+    /카이브(?:No\.|NO\.|no\.|\s)?\.?\s*(\d+)\s+([^|]+)/i,
+    // 카이브 X번 패턴
+    /카이브\s*(\d+)(?:번)?\s+([^|]+)/i,
+    // 그 외의 패턴 (번호만 있는 경우)
+    /(?:No\.|NO\.|no\.|#)(\d+)\s+([^|]+)/i,
+  ];
 
-  if (!nameMatch) return null;
+  let match = null;
+  for (const pattern of patterns) {
+    match = text.match(pattern);
+    if (match) break;
+  }
+
+  if (!match) return null;
 
   // 기본 정보 추출
-  const fullMatch = nameMatch[0];
-  const number = nameMatch[1];
-  const location = nameMatch[2].trim();
+  const fullMatch = match[0];
+  const number = match[1];
+  const location = match[2].trim();
 
-  // 전체 이름 찾기 (파이프 구분자 포함)
+  // 전체 이름 추출 (파이프 구분자 포함)
   let fullName = fullMatch;
-  const startIndex = text.indexOf(fullMatch);
 
-  if (startIndex !== -1) {
-    // 파이프 기호 이후 텍스트 찾기
-    let pipeIndex = text.indexOf("|", startIndex);
-    if (pipeIndex !== -1) {
-      // 4개의 파이프 또는 줄바꿈까지 찾기
-      let pipeCount = 0;
-      let endIndex = pipeIndex;
+  if (!isLineText) {
+    // 한 줄 텍스트가 아닐 경우, 더 넓은 범위 검색
+    const startIndex = text.indexOf(fullMatch);
+    if (startIndex !== -1) {
+      let pipeIndex = text.indexOf("|", startIndex);
+      if (pipeIndex !== -1) {
+        let pipeCount = 0;
+        let endIndex = pipeIndex;
 
-      while (endIndex < text.length && pipeCount < 4) {
-        if (text[endIndex] === "|") pipeCount++;
-        endIndex++;
+        while (endIndex < text.length && pipeCount < 4) {
+          if (text[endIndex] === "|") pipeCount++;
+          endIndex++;
 
-        // 줄바꿈이나 마침표, 큰따옴표를 만나면 중단
-        if (
-          endIndex < text.length &&
-          (text[endIndex] === "\n" || text[endIndex] === "." || text[endIndex] === '"')
-        )
-          break;
+          // 줄바꿈이나 마침표, 큰따옴표를 만나면 중단
+          if (
+            endIndex < text.length &&
+            (text[endIndex] === "\n" || text[endIndex] === "." || text[endIndex] === '"')
+          )
+            break;
+        }
+
+        fullName = text.substring(startIndex, endIndex).trim();
       }
-
-      fullName = text.substring(startIndex, endIndex).trim();
     }
   }
 
@@ -173,40 +188,145 @@ function parseAccommodationName(text) {
     features: {},
   };
 
-  // 특징 추출
+  // 모든 가능한 패턴에서 특징을 추출
+  // 여러 텍스트 소스에서 추출
+  const textsToCheck = [fullName, text];
+  for (const textSource of textsToCheck) {
+    // 특징 추출
+    const features = extractFeatures(textSource);
+
+    // 기존 features에 없는 속성만 추가
+    for (const [key, value] of Object.entries(features)) {
+      if (!result.features[key]) {
+        result.features[key] = value;
+      }
+    }
+  }
+
+  return result;
+}
+
+/**
+ * 숙소명에서 특징(오션뷰, 독채 등)을 추출
+ * @param {string} text - 숙소명 텍스트
+ * @returns {Object} - 추출된 특징 객체
+ */
+function extractFeatures(text) {
+  const features = {};
+
   // 오션뷰
-  if (/오션뷰/.test(fullName)) {
-    result.features.oceanView = true;
+  if (/오션뷰|오션 뷰|ocean\s*view/i.test(text)) {
+    features.oceanView = true;
   }
 
   // 독채
-  if (/독채/.test(fullName)) {
-    result.features.privateHouse = true;
+  if (/독채|단독|whole|entire/i.test(text)) {
+    features.privateHouse = true;
   }
 
-  // 평수
-  const sizeMatch = fullName.match(/(\d+)평(?:대)?/);
-  if (sizeMatch) {
-    result.features.size = parseInt(sizeMatch[1]);
-    result.features.sizeText = sizeMatch[0];
+  // 평수 (다양한 패턴)
+  const sizePatterns = [/(\d+)\s*평(?:대|형)?/, /(\d+)\s*pyeong/i, /(\d+)\s*㎡/];
+
+  for (const pattern of sizePatterns) {
+    const sizeMatch = text.match(pattern);
+    if (sizeMatch) {
+      features.size = parseInt(sizeMatch[1]);
+      features.sizeText = sizeMatch[0];
+      break;
+    }
   }
 
-  // 수용 인원
-  const capacityMatch = fullName.match(/(\d+)~(\d+)인/);
-  if (capacityMatch) {
-    result.features.minCapacity = parseInt(capacityMatch[1]);
-    result.features.maxCapacity = parseInt(capacityMatch[2]);
-    result.features.capacityText = capacityMatch[0];
+  // 수용 인원 (다양한 패턴)
+  const capacityPatterns = [
+    /(\d+)~(\d+)인/,
+    /(\d+)~(\d+)\s*persons/i,
+    /(\d+)\s*~\s*(\d+)\s*guests/i,
+    /최대\s*(\d+)인/,
+  ];
+
+  for (const pattern of capacityPatterns) {
+    const capacityMatch = text.match(pattern);
+    if (capacityMatch) {
+      if (capacityMatch.length > 2) {
+        features.minCapacity = parseInt(capacityMatch[1]);
+        features.maxCapacity = parseInt(capacityMatch[2]);
+        features.capacityText = `${features.minCapacity}~${features.maxCapacity}인`;
+      } else if (capacityMatch.length > 1) {
+        features.maxCapacity = parseInt(capacityMatch[1]);
+        features.capacityText = `최대 ${features.maxCapacity}인`;
+      }
+      break;
+    }
   }
 
   // 개별 바베큐
-  if (/개별바베큐/.test(fullName)) {
-    result.features.privateBBQ = true;
+  if (/개별\s*바베큐|bbq|바비큐/i.test(text)) {
+    features.privateBBQ = true;
   }
 
   // 최대 규모
-  if (/최대\s*규모/.test(fullName)) {
-    result.features.largestSize = true;
+  if (/최대\s*규모|largest|big/i.test(text)) {
+    features.largestSize = true;
+  }
+
+  return features;
+}
+
+/**
+ * 숙소명을 파싱합니다
+ * @param {string} text - 파싱할 전체 텍스트
+ * @returns {Object|null} 파싱된 숙소명 객체
+ */
+function parseAccommodationName(text) {
+  if (!text) return null;
+
+  // 기본 파싱 로직 수행
+  const result = extractAccommodationInfo(text);
+
+  // 파싱 실패 시 대체 방법 시도: 줄별 검색
+  if (!result) {
+    const lines = text.split("\n");
+
+    // 첫 번째 검색: [한정세일] 또는 카이브가 포함된 줄
+    for (const line of lines) {
+      if (
+        (line.includes("[한정세일]") || line.includes("카이브")) &&
+        (line.includes("오션뷰") || line.includes("독채") || line.includes("평"))
+      ) {
+        const lineResult = extractAccommodationInfo(line, true);
+        if (lineResult) {
+          logger.info("PARSE_CONFIRMED_NAME", `줄 패턴으로 숙소명 발견: ${line}`);
+          return lineResult;
+        }
+      }
+    }
+
+    // 두 번째 검색: NO.X 패턴이 있는 줄
+    for (const line of lines) {
+      if (/(NO\.|No\.|#)(\d+)/i.test(line)) {
+        logger.info("PARSE_CONFIRMED_NAME", `번호 패턴으로 숙소명 발견: ${line}`);
+        return {
+          name: line.trim(),
+          number: line.match(/(NO\.|No\.|#)(\d+)/i)[2],
+          location: "",
+          features: extractFeatures(line),
+        };
+      }
+    }
+
+    // 세 번째 검색: 제목에서 추출
+    if (file && file.title) {
+      const titleMatch = file.title.match(/카이브(?:No\.|NO\.|no\.|\s)?\.?\s*(\d+)/i);
+      if (titleMatch) {
+        logger.info("PARSE_CONFIRMED_NAME", `제목에서 숙소명 추출: ${file.title}`);
+        return {
+          name: file.title,
+          number: titleMatch[1],
+          location: "",
+          features: extractFeatures(file.title),
+        };
+      }
+    }
   }
 
   return result;
@@ -424,11 +544,8 @@ function parseMessageContent(file, title) {
     checkOutTime: "", // 체크아웃시간
   };
 
-  // 숙소명 파싱
+  // 객실명 파싱
   parsedContent.accommodationName = parseAccommodationName(text);
-
-  // todo 여기서 숙소명이 제대로 파싱되었는지 확인(예약취소, 예약대기, 예약확정 다 다른듯)
-  console.log(parsedContent.accommodationName);
 
   // 예약 상태에 따른 파싱 로직 선택
   if (parsedContent.reservationStatus === "예약취소") {
@@ -440,6 +557,21 @@ function parseMessageContent(file, title) {
   // 체크인/아웃 시간 기본값 설정
   if (!parsedContent.checkInTime) parsedContent.checkInTime = "오후 4:00";
   if (!parsedContent.checkOutTime) parsedContent.checkOutTime = "오전 11:00";
+
+  // 숙소명이 여전히 없는 경우 제목에서 추출 시도
+  if (!parsedContent.accommodationName && title) {
+    // 제목에서 카이브No.X 패턴 찾기
+    const titleMatch = title.match(/카이브(?:No\.|NO\.|no\.|\s)?\.?\s*(\d+)/i);
+    if (titleMatch) {
+      logger.info("PARSING", `제목에서 숙소명 추출 시도: ${title}`);
+      parsedContent.accommodationName = {
+        name: title,
+        number: titleMatch[1],
+        location: "",
+        features: extractFeatures(title),
+      };
+    }
+  }
 
   return parsedContent;
 }
