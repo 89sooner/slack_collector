@@ -78,10 +78,10 @@ async function parseAirbnbMessage(message) {
  */
 function parseCheckInOut(text, title) {
   const result = {
-    체크인: "",
-    체크아웃: "",
-    체크인시간: "오후 4:00", // 기본값 설정
-    체크아웃시간: "오전 11:00", // 기본값 설정
+    checkInDate: "",
+    checkOutDate: "",
+    checkInTime: "오후 4:00", // 기본값 설정
+    checkOutTime: "오전 11:00", // 기본값 설정
   };
 
   // 연도가 포함된 날짜 형식 처리
@@ -89,8 +89,8 @@ function parseCheckInOut(text, title) {
   const dates = text.match(fullDatePattern);
 
   if (dates && dates.length >= 2) {
-    result.체크인 = dates[0].trim();
-    result.체크아웃 = dates[1].trim();
+    result.checkInDate = dates[0].trim();
+    result.checkOutDate = dates[1].trim();
     return result;
   }
 
@@ -100,8 +100,8 @@ function parseCheckInOut(text, title) {
 
   if (rangeMatch) {
     const year = new Date().getFullYear() + "년";
-    result.체크인 = `${year} ${rangeMatch[1].trim()}`;
-    result.체크아웃 = `${year} ${rangeMatch[2].trim()}`;
+    result.checkInDate = `${year} ${rangeMatch[1].trim()}`;
+    result.checkOutDate = `${year} ${rangeMatch[2].trim()}`;
     return result;
   }
 
@@ -111,8 +111,8 @@ function parseCheckInOut(text, title) {
   if (titleDateMatch) {
     const year = titleDateMatch[1] || new Date().getFullYear() + "년";
     const month = titleDateMatch[2].split("월")[0] + "월";
-    result.체크인 = `${year} ${titleDateMatch[2]}`;
-    result.체크아웃 = `${year} ${month} ${titleDateMatch[3]}`;
+    result.checkInDate = `${year} ${titleDateMatch[2]}`;
+    result.checkOutDate = `${year} ${month} ${titleDateMatch[3]}`;
   }
 
   return result;
@@ -124,32 +124,92 @@ function parseCheckInOut(text, title) {
  * @returns {string} 파싱된 숙소명
  */
 function parseAccommodationName(text) {
-  const prefix = "(?:일광\\d+층\\s*·\\s*)?"; // 층수 표기는 선택적
-  const nameBase = "(?:[LlI]{1,2})카이브(?:[LlI]{1,2})"; // L/l 변형 포함
-  const locations = "(?:해운대\\s+)?(?:송정|기장일광|일광)점"; // 위치 패턴
-  const sizePattern = "\\(\\s*\\d+평[형대]\\s*\\)";
+  if (!text) return null;
 
-  const patterns = [
-    // 패턴 1: 표준 스위트 형식
-    new RegExp(
-      `${prefix}${nameBase}\\s+스위트\\s+[Nn][Oo]\\.?\\d+\\s+${locations}\\s*${sizePattern}`,
-      "i"
-    ),
-    // 패턴 2: 료칸 스위트 형식
-    new RegExp(
-      `${prefix}${nameBase}\\s+료칸스위트\\s+[Nn][Oo]\\.?\\d+\\s+${locations}\\s*${sizePattern}`,
-      "i"
-    ),
-  ];
+  // 숙소 이름 패턴 찾기 (한정세일로 시작하고 카이브가 포함된 패턴)
+  const nameRegex = /\[한정세일\]\s+카이브\s*(?:No\.|NO\.|No)?\.?\s*(\d+)\s+([^|]+)/i;
+  const nameMatch = text.match(nameRegex);
 
-  for (const pattern of patterns) {
-    const match = text.match(pattern);
-    if (match) {
-      // 평형을 평대로 표준화
-      return match[0].replace(/평형/, "평대").trim();
+  if (!nameMatch) return null;
+
+  // 기본 정보 추출
+  const fullMatch = nameMatch[0];
+  const number = nameMatch[1];
+  const location = nameMatch[2].trim();
+
+  // 전체 이름 찾기 (파이프 구분자 포함)
+  let fullName = fullMatch;
+  const startIndex = text.indexOf(fullMatch);
+
+  if (startIndex !== -1) {
+    // 파이프 기호 이후 텍스트 찾기
+    let pipeIndex = text.indexOf("|", startIndex);
+    if (pipeIndex !== -1) {
+      // 4개의 파이프 또는 줄바꿈까지 찾기
+      let pipeCount = 0;
+      let endIndex = pipeIndex;
+
+      while (endIndex < text.length && pipeCount < 4) {
+        if (text[endIndex] === "|") pipeCount++;
+        endIndex++;
+
+        // 줄바꿈이나 마침표, 큰따옴표를 만나면 중단
+        if (
+          endIndex < text.length &&
+          (text[endIndex] === "\n" || text[endIndex] === "." || text[endIndex] === '"')
+        )
+          break;
+      }
+
+      fullName = text.substring(startIndex, endIndex).trim();
     }
   }
-  return "";
+
+  // 결과 객체 생성
+  const result = {
+    name: fullName,
+    number,
+    location,
+    features: {},
+  };
+
+  // 특징 추출
+  // 오션뷰
+  if (/오션뷰/.test(fullName)) {
+    result.features.oceanView = true;
+  }
+
+  // 독채
+  if (/독채/.test(fullName)) {
+    result.features.privateHouse = true;
+  }
+
+  // 평수
+  const sizeMatch = fullName.match(/(\d+)평(?:대)?/);
+  if (sizeMatch) {
+    result.features.size = parseInt(sizeMatch[1]);
+    result.features.sizeText = sizeMatch[0];
+  }
+
+  // 수용 인원
+  const capacityMatch = fullName.match(/(\d+)~(\d+)인/);
+  if (capacityMatch) {
+    result.features.minCapacity = parseInt(capacityMatch[1]);
+    result.features.maxCapacity = parseInt(capacityMatch[2]);
+    result.features.capacityText = capacityMatch[0];
+  }
+
+  // 개별 바베큐
+  if (/개별바베큐/.test(fullName)) {
+    result.features.privateBBQ = true;
+  }
+
+  // 최대 규모
+  if (/최대\s*규모/.test(fullName)) {
+    result.features.largestSize = true;
+  }
+
+  return result;
 }
 
 /**
@@ -366,6 +426,9 @@ function parseMessageContent(file, title) {
 
   // 숙소명 파싱
   parsedContent.accommodationName = parseAccommodationName(text);
+
+  // todo 여기서 숙소명이 제대로 파싱되었는지 확인(예약취소, 예약대기, 예약확정 다 다른듯)
+  console.log(parsedContent.accommodationName);
 
   // 예약 상태에 따른 파싱 로직 선택
   if (parsedContent.reservationStatus === "예약취소") {

@@ -44,12 +44,13 @@ const logger = createLogger("SLACK_COLLECTOR");
 async function processMessages(channelId, channelName, parseFunction) {
   try {
     // 기존 방식(하위 호환성 유지)
-    const legacyLastReadTs = await getLastReadTs();
+    // const legacyLastReadTs = await getLastReadTs();
 
     // 새로운 채널별 상태 관리 방식 사용
     const channelLastReadTs = await getChannelLastReadTs(channelId);
     // 둘 중 더 최신 타임스탬프 사용 (기존 데이터 마이그레이션 고려)
-    const lastReadTs = channelLastReadTs || legacyLastReadTs;
+    // const lastReadTs = channelLastReadTs || legacyLastReadTs;
+    const lastReadTs = channelLastReadTs;
 
     const result = await getChannelHistory(channelId, lastReadTs);
 
@@ -84,7 +85,7 @@ async function processMessages(channelId, channelName, parseFunction) {
       const lastTs = newMessages[newMessages.length - 1].ts;
 
       // 기존 방식 유지 (하위 호환성)
-      await saveLastReadTs(lastTs);
+      // await saveLastReadTs(lastTs);
 
       // 새로운 채널별 상태 저장
       await saveChannelLastReadTs(channelId, channelName, lastTs);
@@ -143,8 +144,11 @@ async function processMessage(message, parseFunction) {
     logger.info("PARSING", "새 메시지 파싱 완료:", parsedMessage);
     monitor.incrementProcessed(parsedMessage.platform);
 
-    // 원본 메시지 로깅 (디버깅용)
-    // logMessageToFile(message);
+    // 환경변수에 따라 원본 메시지 로깅 (디버깅용)
+    if (config.LOG_MESSAGES_TO_FILE) {
+      logMessageToFile(message);
+      logger.debug("LOGGING", "원본 메시지를 파일에 로깅했습니다");
+    }
 
     // 데이터 표준화
     const standardizedData = standardizeData(parsedMessage, message);

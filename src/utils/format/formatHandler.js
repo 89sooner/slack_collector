@@ -113,9 +113,16 @@ function formatDate(platform, dateStr, status) {
 // 객실명 형식 변환 함수
 function formatRoomName(platform, roomName, accommodationName) {
   if (platform === "에어비앤비") {
+
+    console.log(accommodationName)
     if (accommodationName) {
+      // accommodationName이 객체인 경우 name 속성 사용
+      let nameStr = typeof accommodationName === 'object' && accommodationName !== null 
+        ? accommodationName.name || '' 
+        : String(accommodationName || '');
+      
       // 브랜드명 표기 표준화
-      return accommodationName
+      return nameStr
         .replace(/([LlIi]{1,2})카이브([LlIi]{1,2})/i, (match, prefix, suffix) => {
           // 첫 번째 l/L과 두 번째 l/L 각각의 길이를 체크
           const prefixLength = prefix.length;
@@ -131,7 +138,6 @@ function formatRoomName(platform, roomName, accommodationName) {
     }
     return "";
   } else if (platform === "야놀자") {
-    // const yanoljaRoomNameFormat = /(.+) \(입실 \d+시, \d+평형\)/;
     const yanoljaRoomNameFormat = /(.+?)(?:\s*\(.*(?:입실\s*\d+시)?.*(?:\d+평형)?\))?$/;
     const match = roomName && roomName.match(yanoljaRoomNameFormat);
     if (match) {

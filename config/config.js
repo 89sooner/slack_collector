@@ -18,4 +18,5 @@ module.exports = {
   BACKUP_ENABLED: process.env.BACKUP_ENABLED || "false",
   BACKUP_INTERVAL_DAYS: parseInt(process.env.BACKUP_INTERVAL_DAYS || "1", 10),
   BACKUP_RETENTION_DAYS: parseInt(process.env.BACKUP_RETENTION_DAYS || "30", 10),
+  LOG_MESSAGES_TO_FILE: process.env.LOG_MESSAGES_TO_FILE || "true",
 };
