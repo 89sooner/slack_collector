@@ -5,6 +5,21 @@ const { createLogger } = require("../utils/logging/logger");
 const logger = createLogger("YANOLJA");
 
 /**
+ * HTML 엔티티를 디코딩합니다
+ * @param {string} text - 디코딩할 텍스트
+ * @returns {string} 디코딩된 텍스트
+ */
+function decodeHtmlEntities(text) {
+  if (!text) return "";
+  return text
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&amp;/g, "&")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'");
+}
+
+/**
  * 파싱된 콘텐츠의 유효성을 검사하고 로깅합니다
  * @param {Object} parsedContent - 파싱된 야놀자 데이터
  * @returns {boolean} 유효성 검사 결과
@@ -63,7 +78,14 @@ async function parseYanoljaMessage(message) {
       return null;
     }
 
-    const parsedContent = parseMessageContent(message.text);
+    // HTML 엔티티 디코딩
+    const decodedText = decodeHtmlEntities(message.text);
+    logger.debug("PARSING", "디코딩된 텍스트 처리", {
+      originalLength: message.text.length,
+      decodedLength: decodedText.length,
+    });
+
+    const parsedContent = parseMessageContent(decodedText);
     validateAndLogParsedContent(parsedContent);
     return parsedContent;
   } catch (error) {
@@ -78,7 +100,12 @@ async function parseYanoljaMessage(message) {
  * @returns {Object} 파싱된 야놀자 데이터
  */
 function parseMessageContent(text) {
-  const lines = text.split("\n");
+  // 모든 라인을 가져오고, 빈 라인은 필터링
+  const allLines = text.split("\n");
+  const lines = allLines.map((line) => line.trim()).filter((line) => line !== "");
+
+  logger.debug("PARSING", `전체 라인 수: ${allLines.length}, 유효 라인 수: ${lines.length}`);
+
   let parsedContent = {
     platform: "야놀자",
     receivedDate: "", // 수신날짜
@@ -105,8 +132,8 @@ function parseMessageContent(text) {
   // 예약 상태 파싱
   parseReservationStatus(lines, parsedContent);
 
-  // 예약 상세 정보 파싱
-  parseReservationDetails(lines, parsedContent);
+  // 예약 상세 정보 파싱 (패턴 기반으로 변경)
+  parseReservationDetailsByPattern(lines, parsedContent);
 
   return parsedContent;
 }
@@ -138,11 +165,20 @@ function parseHeaderInfo(lines, parsedContent) {
  * @param {Object} parsedContent - 파싱 결과 객체
  */
 function parseReservationStatus(lines, parsedContent) {
-  lines.forEach((line) => {
-    if (line.includes("<숙박>")) {
+  logger.debug("PARSING", "예약 상태 파싱 시작");
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+
+    // 숙박 또는 숙박 취소 패턴 확인
+    if (line === "<숙박>") {
       parsedContent.reservationStatus = "예약확정";
-    } else if (line.includes("<숙박 취소>")) {
+      logger.debug("PARSING", "예약 상태 확인: 예약확정");
+      return;
+    } else if (line === "<숙박 취소>") {
       parsedContent.reservationStatus = "예약취소";
+      logger.debug("PARSING", "예약 상태 확인: 예약취소");
+      return;
     } else if (line.includes("[야놀자펜션 - ")) {
       // 기존 형식 지원 유지
       if (line.includes("예약완료")) {
@@ -152,12 +188,16 @@ function parseReservationStatus(lines, parsedContent) {
       } else {
         parsedContent.reservationStatus = "기타";
       }
+      logger.debug("PARSING", `기존 형식 예약 상태: ${parsedContent.reservationStatus}`);
+      return;
     }
-  });
+  }
+
+  logger.warning("PARSING", "예약 상태를 결정할 수 없습니다");
 }
 
 /**
- * 예약 상세 정보를 파싱합니다
+ * 기존 예약 상세 정보를 파싱합니다(이전 호환성용)
  * @param {Array} lines - 텍스트 라인 배열
  * @param {Object} parsedContent - 파싱 결과 객체
  */
@@ -257,6 +297,156 @@ function parseReservationDetails(lines, parsedContent) {
 
     currentLineIndex++;
   }
+}
+
+/**
+ * 패턴 기반으로 예약 상세 정보를 파싱합니다
+ * @param {Array} lines - 텍스트 라인 배열
+ * @param {Object} parsedContent - 파싱 결과 객체
+ */
+function parseReservationDetailsByPattern(lines, parsedContent) {
+  logger.debug("PARSING", "패턴 기반 예약 상세 정보 파싱 시작");
+
+  // 기존 형식을 위한 필드 매핑
+  const oldFieldMappings = {
+    "펜션명 :": "pensionName",
+    "야놀자펜션 예약번호 :": "reservationNumber",
+    "예약자 :": "guestName",
+    "연락처 :": "phoneNumber",
+    "객실명 :": "roomName",
+    "입실일 :": "checkInDay",
+    "퇴실일 :": "checkOutDay",
+    "이용기간:": "stayDuration",
+    "판매가격:": "sellingPrice",
+    "픽업여부:": "pickupStatus",
+  };
+
+  // 1. 기존 필드 매핑 처리
+  for (const line of lines) {
+    for (const [prefix, field] of Object.entries(oldFieldMappings)) {
+      if (line.includes(prefix)) {
+        parsedContent[field] = line.split(":")[1]?.trim() || "";
+        logger.debug("PARSING", `기존 형식 파싱: ${field} = ${parsedContent[field]}`);
+      }
+    }
+  }
+
+  // 2. 새로운 메시지 형식 처리 (패턴 기반)
+  // 예약 구조 마커 찾기
+  let bookingTypeIndex = -1;
+  let miriReservationIndex = -1;
+
+  // (1) 미리예약 위치 찾기
+  for (let i = 0; i < lines.length; i++) {
+    if (lines[i] === "야놀자 미리예약") {
+      miriReservationIndex = i;
+      logger.debug("PARSING", `미리예약 라인 찾음: ${i}`);
+      break;
+    }
+  }
+
+  // (2) 숙박 또는 숙박 취소 위치 찾기
+  if (miriReservationIndex !== -1) {
+    for (let i = miriReservationIndex + 1; i < lines.length; i++) {
+      if (lines[i] === "<숙박>" || lines[i] === "<숙박 취소>") {
+        bookingTypeIndex = i;
+        logger.debug("PARSING", `예약 타입 라인 찾음: ${i}, 값: ${lines[i]}`);
+        break;
+      }
+    }
+  }
+
+  // 새 형식의 예약 정보 파싱
+  if (bookingTypeIndex !== -1) {
+    // 펜션명 (예약 타입 바로 다음 라인)
+    if (bookingTypeIndex + 1 < lines.length) {
+      parsedContent.pensionName = lines[bookingTypeIndex + 1];
+      logger.debug("PARSING", `펜션명: ${parsedContent.pensionName}`);
+    }
+
+    // 예약번호 (펜션명 다음 라인)
+    if (bookingTypeIndex + 2 < lines.length) {
+      parsedContent.reservationNumber = lines[bookingTypeIndex + 2];
+      logger.debug("PARSING", `예약번호: ${parsedContent.reservationNumber}`);
+    }
+
+    // 객실명 찾기: 예약번호 이후 첫 번째 의미있는 라인
+    // (빈 줄을 감안해 반복 검색)
+    for (let i = bookingTypeIndex + 3; i < lines.length; i++) {
+      if (lines[i] && !parsedContent.roomName) {
+        parsedContent.roomName = lines[i];
+        logger.debug("PARSING", `객실명: ${parsedContent.roomName}`);
+        break;
+      }
+    }
+
+    // 가격 찾기: 원(₩) 또는 숫자+원 패턴 확인
+    const pricePattern = /^([\d,]+)(원|₩)/;
+    for (let i = bookingTypeIndex + 3; i < lines.length; i++) {
+      if (pricePattern.test(lines[i])) {
+        parsedContent.sellingPrice = lines[i];
+        logger.debug("PARSING", `가격: ${parsedContent.sellingPrice}`);
+        break;
+      }
+    }
+
+    // 예약자 정보 찾기: 이름 / 번호 패턴
+    const guestInfoPattern = /(.+)\s*\/\s*(\d+)/;
+    for (let i = bookingTypeIndex + 4; i < lines.length; i++) {
+      const match = lines[i].match(guestInfoPattern);
+      if (match) {
+        parsedContent.guestName = match[1].trim();
+        parsedContent.phoneNumber = match[2].trim();
+        logger.debug(
+          "PARSING",
+          `예약자: ${parsedContent.guestName}, 연락처: ${parsedContent.phoneNumber}`
+        );
+        break;
+      }
+    }
+
+    // 체크인 정보 찾기: 날짜(요일) 시간~ 패턴
+    const checkInPattern = /(\d{4}-\d{2}-\d{2})\(.\).*?(\d{2}:\d{2})~/;
+    for (let i = bookingTypeIndex + 5; i < lines.length; i++) {
+      const match = lines[i].match(checkInPattern);
+      if (match) {
+        parsedContent.checkInDay = match[1];
+        logger.debug("PARSING", `체크인: ${parsedContent.checkInDay}`);
+        break;
+      }
+    }
+
+    // 체크아웃 정보 찾기: 날짜(요일) 시간 (숙박일수) 패턴
+    const checkOutPattern = /(\d{4}-\d{2}-\d{2})\(.\).*?(\d{2}:\d{2}).*?\((\d+)박\)/;
+    for (let i = bookingTypeIndex + 6; i < lines.length; i++) {
+      const match = lines[i].match(checkOutPattern);
+      if (match) {
+        parsedContent.checkOutDay = match[1];
+        parsedContent.stayDuration = match[3] + "박";
+        logger.debug(
+          "PARSING",
+          `체크아웃: ${parsedContent.checkOutDay}, 숙박: ${parsedContent.stayDuration}`
+        );
+        break;
+      }
+    }
+
+    // 픽업정보 찾기: 마지막 줄
+    // 주로 "자가방문", "대중교통방문", "도보방문" 등의 형태로 나타남
+    const transportKeywords = ["방문", "자가", "교통", "도보"];
+    for (let i = lines.length - 1; i > bookingTypeIndex + 7; i--) {
+      if (transportKeywords.some((keyword) => lines[i].includes(keyword))) {
+        parsedContent.pickupStatus = lines[i].trim();
+        logger.debug("PARSING", `픽업상태: ${parsedContent.pickupStatus}`);
+        break;
+      }
+    }
+  } else {
+    logger.debug("PARSING", "새 형식 예약 마커를 찾을 수 없습니다. 기존 파싱 결과만 사용됩니다.");
+  }
+
+  // 파싱 결과 요약 출력
+  logger.debug("PARSING_RESULT", "파싱 결과", parsedContent);
 }
 
 module.exports = { parseYanoljaMessage };

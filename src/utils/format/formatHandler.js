@@ -88,9 +88,15 @@ function formatDate(platform, dateStr, status) {
       // 새로운 야놀자 날짜 형식: "2025-04-23(수)"
       const newYanoljaDateFormat = /(\d{4})-(\d{2})-(\d{2})\(.\)/;
       // 기존 야놀자 날짜 형식: "YYYY-MM-DD(요일)"
-      const yanoljaDateFormat = /(\d{4})-(\d{2})-(\d{2})\(.\)/;
 
-      let match = dateStr.match(newYanoljaDateFormat) || dateStr.match(yanoljaDateFormat);
+      let match = dateStr.match(newYanoljaDateFormat);
+      if (match) {
+        return `${match[1]}-${match[2]}-${match[3]}`;
+      }
+
+      // 날짜만 포함된 경우 (요일 없음)
+      const simpleDateFormat = /(\d{4})-(\d{2})-(\d{2})/;
+      match = dateStr.match(simpleDateFormat);
       if (match) {
         return `${match[1]}-${match[2]}-${match[3]}`;
       }
