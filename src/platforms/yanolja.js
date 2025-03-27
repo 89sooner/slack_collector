@@ -139,13 +139,18 @@ function parseHeaderInfo(lines, parsedContent) {
  */
 function parseReservationStatus(lines, parsedContent) {
   lines.forEach((line) => {
-    if (line.includes("[야놀자펜션 - ")) {
+    if (line.includes("<숙박>")) {
+      parsedContent.reservationStatus = "예약확정";
+    } else if (line.includes("<숙박 취소>")) {
+      parsedContent.reservationStatus = "예약취소";
+    } else if (line.includes("[야놀자펜션 - ")) {
+      // 기존 형식 지원 유지
       if (line.includes("예약완료")) {
         parsedContent.reservationStatus = "예약확정";
       } else if (line.includes("예약취소")) {
         parsedContent.reservationStatus = "예약취소";
       } else {
-        parsedContent.reservationStatus = "알수없음";
+        parsedContent.reservationStatus = "기타";
       }
     }
   });
@@ -157,7 +162,8 @@ function parseReservationStatus(lines, parsedContent) {
  * @param {Object} parsedContent - 파싱 결과 객체
  */
 function parseReservationDetails(lines, parsedContent) {
-  const fieldMappings = {
+  // 1. 기존 필드 매핑 유지 (이전 형식과의 호환성)
+  const oldFieldMappings = {
     "펜션명 :": "pensionName",
     "야놀자펜션 예약번호 :": "reservationNumber",
     "예약자 :": "guestName",
@@ -170,14 +176,87 @@ function parseReservationDetails(lines, parsedContent) {
     "픽업여부:": "pickupStatus",
   };
 
-  lines.forEach((line) => {
-    for (const [prefix, field] of Object.entries(fieldMappings)) {
+  // 2. 새로운 메시지 형식 처리
+  let currentLineIndex = 0;
+
+  while (currentLineIndex < lines.length) {
+    const line = lines[currentLineIndex];
+
+    // 기존 형식 처리
+    for (const [prefix, field] of Object.entries(oldFieldMappings)) {
       if (line.includes(prefix)) {
-        parsedContent[field] = line.split(":")[1].trim();
+        parsedContent[field] = line.split(":")[1]?.trim() || "";
         break;
       }
     }
-  });
+
+    // 새 형식 처리 - 미리예약 메시지 찾기
+    if (line.includes("야놀자 미리예약")) {
+      let contentStart = false;
+
+      // 예약정보 시작 이후의 라인들 파싱
+      for (let i = currentLineIndex; i < lines.length; i++) {
+        const contentLine = lines[i];
+
+        // 펜션명 파싱 (첫 번째 내용 라인)
+        if (
+          contentStart === false &&
+          (contentLine.includes("<숙박>") || contentLine.includes("<숙박 취소>"))
+        ) {
+          contentStart = true;
+          continue;
+        }
+
+        if (contentStart) {
+          // 펜션명
+          if (i === currentLineIndex + 2) {
+            parsedContent.pensionName = contentLine.trim();
+          }
+          // 예약번호
+          else if (i === currentLineIndex + 3) {
+            parsedContent.reservationNumber = contentLine.trim();
+          }
+          // 객실명
+          else if (i === currentLineIndex + 4) {
+            parsedContent.roomName = contentLine.trim();
+          }
+          // 가격
+          else if (i === currentLineIndex + 5) {
+            parsedContent.sellingPrice = contentLine.trim();
+          }
+          // 예약자/연락처
+          else if (i === currentLineIndex + 6 && contentLine.includes("/")) {
+            const parts = contentLine.split("/");
+            parsedContent.guestName = parts[0].trim();
+            parsedContent.phoneNumber = parts[1].trim();
+          }
+          // 체크인 정보
+          else if (i === currentLineIndex + 7 && contentLine.includes("~")) {
+            const checkInMatch = contentLine.match(/(\d{4}-\d{2}-\d{2})\(.\) (\d{2}:\d{2})~/);
+            if (checkInMatch) {
+              parsedContent.checkInDay = checkInMatch[1];
+            }
+          }
+          // 체크아웃 정보
+          else if (i === currentLineIndex + 8 && contentLine.includes("(")) {
+            const checkOutMatch = contentLine.match(
+              /(\d{4}-\d{2}-\d{2})\(.\) (\d{2}:\d{2}) \((\d+)박\)/
+            );
+            if (checkOutMatch) {
+              parsedContent.checkOutDay = checkOutMatch[1];
+              parsedContent.stayDuration = checkOutMatch[3] + "박";
+            }
+          }
+          // 픽업정보
+          else if (i === currentLineIndex + 9) {
+            parsedContent.pickupStatus = contentLine.trim();
+          }
+        }
+      }
+    }
+
+    currentLineIndex++;
+  }
 }
 
 module.exports = { parseYanoljaMessage };

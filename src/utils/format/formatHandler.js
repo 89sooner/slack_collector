@@ -85,8 +85,12 @@ function formatDate(platform, dateStr, status) {
         return `${year}-${month}-${day}`;
       }
     } else if (platform === "야놀자") {
+      // 새로운 야놀자 날짜 형식: "2025-04-23(수)"
+      const newYanoljaDateFormat = /(\d{4})-(\d{2})-(\d{2})\(.\)/;
+      // 기존 야놀자 날짜 형식: "YYYY-MM-DD(요일)"
       const yanoljaDateFormat = /(\d{4})-(\d{2})-(\d{2})\(.\)/;
-      const match = dateStr.match(yanoljaDateFormat);
+
+      let match = dateStr.match(newYanoljaDateFormat) || dateStr.match(yanoljaDateFormat);
       if (match) {
         return `${match[1]}-${match[2]}-${match[3]}`;
       }
@@ -113,13 +117,13 @@ function formatDate(platform, dateStr, status) {
 // 객실명 형식 변환 함수
 function formatRoomName(platform, roomName, accommodationName) {
   if (platform === "에어비앤비") {
-
     if (accommodationName) {
       // accommodationName이 객체인 경우 name 속성 사용
-      let nameStr = typeof accommodationName === 'object' && accommodationName !== null 
-        ? accommodationName.name || '' 
-        : String(accommodationName || '');
-      
+      let nameStr =
+        typeof accommodationName === "object" && accommodationName !== null
+          ? accommodationName.name || ""
+          : String(accommodationName || "");
+
       // 브랜드명 표기 표준화
       return nameStr
         .replace(/([LlIi]{1,2})카이브([LlIi]{1,2})/i, (match, prefix, suffix) => {
