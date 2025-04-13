@@ -178,12 +178,16 @@ async function checkAllChannels() {
   logger.info("CHECK", "Slack 인바운드 메시지 큐 확인 시작");
 
   try {
-    await Promise.all([
-      processMessages(config.CHANNEL_ID_YANOLJA, "야놀자", parseYanoljaMessage),
-      processMessages(config.CHANNEL_ID_NAVER_BOOKING, "네이버", parseNaverMessage),
-      processMessages(config.CHANNEL_ID_AIRBNB, "에어비앤비", parseAirbnbMessage),
-      processMessages(config.CHANNEL_ID_YEOGI, "여기어때", parseYeogiMessage),
-    ]);
+    await processMessages(config.CHANNEL_ID_YANOLJA, "야놀자", parseYanoljaMessage);
+    await new Promise((resolve) => setTimeout(resolve, 2000)); // 2초 지연
+
+    await processMessages(config.CHANNEL_ID_NAVER_BOOKING, "네이버", parseNaverMessage);
+    await new Promise((resolve) => setTimeout(resolve, 2000)); // 2초 지연
+
+    await processMessages(config.CHANNEL_ID_AIRBNB, "에어비앤비", parseAirbnbMessage);
+    await new Promise((resolve) => setTimeout(resolve, 2000)); // 2초 지연
+
+    await processMessages(config.CHANNEL_ID_YEOGI, "여기어때", parseYeogiMessage);
 
     logger.info("CHECK", "모든 채널 확인 완료");
   } catch (error) {
@@ -274,8 +278,9 @@ async function initialize() {
   // 채널 상태 로깅
   await logChannelStates();
 
-  // 정기적 실행 설정
-  cron.schedule("*/30 * * * * *", () => {
+  // 정기적 실행 설정 (30초 -> 2분으로 변경)
+  cron.schedule("*/2 * * * *", () => {
+    // 30초마다 -> 2분마다로 변경
     checkAllChannels();
   });
 
@@ -285,7 +290,7 @@ async function initialize() {
     await logChannelStates();
   });
 
-  logger.info("INIT", "Slack 메시지 수집기가 시작되었습니다. 30초마다 채널을 확인합니다.");
+  logger.info("INIT", "Slack 메시지 수집기가 시작되었습니다. 2분마다 채널을 확인합니다.");
 }
 
 /**
