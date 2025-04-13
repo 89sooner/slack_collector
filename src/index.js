@@ -279,7 +279,7 @@ async function initialize() {
   await logChannelStates();
 
   // 정기적 실행 설정 (30초마다 채널 확인)
-  cron.schedule("*/30 * * * *", () => {
+  cron.schedule("*/30 * * * * *", () => {
     checkAllChannels();
   });
 
