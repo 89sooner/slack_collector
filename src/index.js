@@ -278,9 +278,8 @@ async function initialize() {
   // 채널 상태 로깅
   await logChannelStates();
 
-  // 정기적 실행 설정 (30초 -> 2분으로 변경)
-  cron.schedule("*/2 * * * *", () => {
-    // 30초마다 -> 2분마다로 변경
+  // 정기적 실행 설정 (30초마다 채널 확인)
+  cron.schedule("*/30 * * * *", () => {
     checkAllChannels();
   });
 
@@ -290,7 +289,7 @@ async function initialize() {
     await logChannelStates();
   });
 
-  logger.info("INIT", "Slack 메시지 수집기가 시작되었습니다. 2분마다 채널을 확인합니다.");
+  logger.info("INIT", "Slack 메시지 수집기가 시작되었습니다. 30초마다 채널을 확인합니다.");
 }
 
 /**
