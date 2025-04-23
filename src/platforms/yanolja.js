@@ -338,9 +338,10 @@ function parseReservationDetailsByPattern(lines, parsedContent) {
 
   // (1) 미리예약 위치 찾기
   for (let i = 0; i < lines.length; i++) {
-    if (lines[i] === "야놀자 미리예약") {
+    // "야놀자 미리예약" 또는 "NOL 미리예약" 모두 허용
+    if (lines[i] === "야놀자 미리예약" || lines[i] === "NOL 미리예약") {
       miriReservationIndex = i;
-      logger.debug("PARSING", `미리예약 라인 찾음: ${i}`);
+      logger.debug("PARSING", `미리예약 라인 찾음: ${i} (${lines[i]})`);
       break;
     }
   }
@@ -406,28 +407,56 @@ function parseReservationDetailsByPattern(lines, parsedContent) {
     }
 
     // 체크인 정보 찾기: 날짜(요일) 시간~ 패턴
-    const checkInPattern = /(\d{4}-\d{2}-\d{2})\(.\).*?(\d{2}:\d{2})~/;
+    const checkInPattern = /(\d{4}-\d{2}-\d{2})\(.\).*?(\d{2}:\d{2})~$/;
+    let checkInIndex = -1;
     for (let i = bookingTypeIndex + 5; i < lines.length; i++) {
       const match = lines[i].match(checkInPattern);
       if (match) {
         parsedContent.checkInDay = match[1];
         logger.debug("PARSING", `체크인: ${parsedContent.checkInDay}`);
+        checkInIndex = i;
+        // 변경 포맷 대응: 체크인 라인 다음 라인에서 체크아웃 정보 추출
+        if (i + 1 < lines.length) {
+          const checkOutPattern = /(\d{4}-\d{2}-\d{2})\(.\).*?(\d{2}:\d{2}) \((\d+)박\)/;
+          const outMatch = lines[i + 1].match(checkOutPattern);
+          if (outMatch) {
+            parsedContent.checkOutDay = outMatch[1];
+            parsedContent.stayDuration = outMatch[3] + "박";
+            logger.debug(
+              "PARSING",
+              `체크아웃(변경포맷): ${parsedContent.checkOutDay}, 숙박: ${parsedContent.stayDuration}`
+            );
+          }
+        }
         break;
       }
     }
 
-    // 체크아웃 정보 찾기: 날짜(요일) 시간 (숙박일수) 패턴
-    const checkOutPattern = /(\d{4}-\d{2}-\d{2})\(.\).*?(\d{2}:\d{2}).*?\((\d+)박\)/;
-    for (let i = bookingTypeIndex + 6; i < lines.length; i++) {
-      const match = lines[i].match(checkOutPattern);
-      if (match) {
-        parsedContent.checkOutDay = match[1];
-        parsedContent.stayDuration = match[3] + "박";
-        logger.debug(
-          "PARSING",
-          `체크아웃: ${parsedContent.checkOutDay}, 숙박: ${parsedContent.stayDuration}`
-        );
-        break;
+    // 기존 포맷(체크인/체크아웃이 한 줄씩 따로 있는 경우)도 지원
+    if (!parsedContent.checkInDay) {
+      const legacyCheckInPattern = /(\d{4}-\d{2}-\d{2})\(.\) (\d{2}:\d{2})~/;
+      for (let i = bookingTypeIndex + 5; i < lines.length; i++) {
+        const match = lines[i].match(legacyCheckInPattern);
+        if (match) {
+          parsedContent.checkInDay = match[1];
+          logger.debug("PARSING", `체크인(기존): ${parsedContent.checkInDay}`);
+          break;
+        }
+      }
+    }
+    if (!parsedContent.checkOutDay) {
+      const legacyCheckOutPattern = /(\d{4}-\d{2}-\d{2})\(.\) (\d{2}:\d{2}) \((\d+)박\)/;
+      for (let i = bookingTypeIndex + 6; i < lines.length; i++) {
+        const match = lines[i].match(legacyCheckOutPattern);
+        if (match) {
+          parsedContent.checkOutDay = match[1];
+          parsedContent.stayDuration = match[3] + "박";
+          logger.debug(
+            "PARSING",
+            `체크아웃(기존): ${parsedContent.checkOutDay}, 숙박: ${parsedContent.stayDuration}`
+          );
+          break;
+        }
       }
     }
 
