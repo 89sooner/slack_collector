@@ -170,10 +170,10 @@ function parseReservationStatus(lines, parsedContent) {
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
 
-    // 숙박 또는 숙박 취소 패턴 확인
-    if (line === "<숙박>") {
+    // 숙박, 숙박 취소, 연박 패턴 확인
+    if (line === "<숙박>" || line === "<연박>") {
       parsedContent.reservationStatus = "예약확정";
-      logger.debug("PARSING", "예약 상태 확인: 예약확정");
+      logger.debug("PARSING", `예약 상태 확인: 예약확정 (${line})`);
       return;
     } else if (line === "<숙박 취소>") {
       parsedContent.reservationStatus = "예약취소";
@@ -346,10 +346,10 @@ function parseReservationDetailsByPattern(lines, parsedContent) {
     }
   }
 
-  // (2) 숙박 또는 숙박 취소 위치 찾기
+  // (2) 숙박, 숙박 취소, 연박 위치 찾기
   if (miriReservationIndex !== -1) {
     for (let i = miriReservationIndex + 1; i < lines.length; i++) {
-      if (lines[i] === "<숙박>" || lines[i] === "<숙박 취소>") {
+      if (lines[i] === "<숙박>" || lines[i] === "<숙박 취소>" || lines[i] === "<연박>") {
         bookingTypeIndex = i;
         logger.debug("PARSING", `예약 타입 라인 찾음: ${i}, 값: ${lines[i]}`);
         break;
@@ -406,52 +406,76 @@ function parseReservationDetailsByPattern(lines, parsedContent) {
       }
     }
 
-    // 체크인/체크아웃 정보 파싱 개선: 두 가지 포맷 모두 지원
+    // 체크인/체크아웃 정보 파싱 개선: 세 가지 포맷 모두 지원
     let checkInIndex = -1;
     let foundCheckIn = false;
 
-    // 1. 변경 포맷: 체크인 라인 끝에 ~, 다음 라인이 체크아웃
-    const checkInPatternNew = /(\d{4}-\d{2}-\d{2})\(.\).*?(\d{2}:\d{2})~$/;
-    // 2. 기존 포맷: 체크인 라인, 다음 라인이 ~로 시작하는 체크아웃
-    const checkInPatternLegacy = /(\d{4}-\d{2}-\d{2})\(.\).*?(\d{2}:\d{2})$/;
-    const checkOutPatternLegacy = /^~(\d{4}-\d{2}-\d{2})\(.\).*?(\d{2}:\d{2}) \((\d+)박\)/;
+    // 1. 신규 포맷: 체크인 라인 단독, 다음 라인이 ~로 시작하는 체크아웃
+    const checkInPatternNew2 = /(\d{4}-\d{2}-\d{2})\(.\).*?(\d{2}:\d{2})$/;
+    const checkOutPatternNew2 = /^~(\d{4}-\d{2}-\d{2})\(.\).*?(\d{2}:\d{2}) \((\d+)박\)/;
+
+    // 2. 취소 포맷: 체크인 라인 끝에 ~, 다음 라인이 체크아웃 (~ 없음)
+    const checkInPatternCancel = /(\d{4}-\d{2}-\d{2})\(.\).*?(\d{2}:\d{2})~$/;
+    const checkOutPatternCancel = /^(\d{4}-\d{2}-\d{2})\(.\).*?(\d{2}:\d{2}) \((\d+)박\)/;
+
+    // 3. 기존 포맷: 체크인 라인 끝에 ~, 다음 라인이 체크아웃
+    const checkInPatternLegacy = /(\d{4}-\d{2}-\d{2})\(.\).*?(\d{2}:\d{2})~$/;
+    const checkOutPatternLegacy = /^(\d{4}-\d{2}-\d{2})\(.\).*?(\d{2}:\d{2}) \((\d+)박\)/;
 
     for (let i = bookingTypeIndex + 5; i < lines.length; i++) {
-      // 변경 포맷: 체크인 라인 끝에 ~
-      let match = lines[i].match(checkInPatternNew);
-      if (match) {
-        parsedContent.checkInDay = match[1];
-        logger.debug("PARSING", `체크인(변경포맷): ${parsedContent.checkInDay}`);
-        checkInIndex = i;
-        // 다음 라인에서 체크아웃 추출
-        if (i + 1 < lines.length) {
-          const checkOutPattern = /(\d{4}-\d{2}-\d{2})\(.\).*?(\d{2}:\d{2}) \((\d+)박\)/;
-          const outMatch = lines[i + 1].match(checkOutPattern);
-          if (outMatch) {
-            parsedContent.checkOutDay = outMatch[1];
-            parsedContent.stayDuration = outMatch[3] + "박";
-            logger.debug(
-              "PARSING",
-              `체크아웃(변경포맷): ${parsedContent.checkOutDay}, 숙박: ${parsedContent.stayDuration}`
-            );
-          }
-        }
-        foundCheckIn = true;
-        break;
-      }
-      // 기존 포맷: 체크인 라인, 다음 라인이 ~로 시작
-      match = lines[i].match(checkInPatternLegacy);
+      // 신규 포맷: 체크인 라인 단독, 다음 라인이 ~로 시작
+      let match = lines[i].match(checkInPatternNew2);
       if (match && i + 1 < lines.length && lines[i + 1].startsWith("~")) {
         parsedContent.checkInDay = match[1];
-        logger.debug("PARSING", `체크인(기존포맷): ${parsedContent.checkInDay}`);
-        const outMatch = lines[i + 1].match(checkOutPatternLegacy);
+        logger.debug("PARSING", `체크인(신규포맷): ${parsedContent.checkInDay}`);
+        const outMatch = lines[i + 1].match(checkOutPatternNew2);
         if (outMatch) {
           parsedContent.checkOutDay = outMatch[1];
           parsedContent.stayDuration = outMatch[3] + "박";
           logger.debug(
             "PARSING",
-            `체크아웃(기존포맷): ${parsedContent.checkOutDay}, 숙박: ${parsedContent.stayDuration}`
+            `체크아웃(신규포맷): ${parsedContent.checkOutDay}, 숙박: ${parsedContent.stayDuration}`
           );
+        }
+        foundCheckIn = true;
+        break;
+      }
+
+      // 취소 포맷: 체크인 라인 끝에 ~, 다음 라인이 체크아웃 (~ 없음)
+      match = lines[i].match(checkInPatternCancel);
+      if (match && i + 1 < lines.length && !lines[i + 1].startsWith("~")) {
+        parsedContent.checkInDay = match[1];
+        logger.debug("PARSING", `체크인(취소포맷): ${parsedContent.checkInDay}`);
+        const outMatch = lines[i + 1].match(checkOutPatternCancel);
+        if (outMatch) {
+          parsedContent.checkOutDay = outMatch[1];
+          parsedContent.stayDuration = outMatch[3] + "박";
+          logger.debug(
+            "PARSING",
+            `체크아웃(취소포맷): ${parsedContent.checkOutDay}, 숙박: ${parsedContent.stayDuration}`
+          );
+        }
+        foundCheckIn = true;
+        break;
+      }
+
+      // 기존 포맷: 체크인 라인 끝에 ~, 다음 라인이 체크아웃
+      match = lines[i].match(checkInPatternLegacy);
+      if (match) {
+        parsedContent.checkInDay = match[1];
+        logger.debug("PARSING", `체크인(기존포맷): ${parsedContent.checkInDay}`);
+        checkInIndex = i;
+        // 다음 라인에서 체크아웃 추출
+        if (i + 1 < lines.length) {
+          const outMatch = lines[i + 1].match(checkOutPatternLegacy);
+          if (outMatch) {
+            parsedContent.checkOutDay = outMatch[1];
+            parsedContent.stayDuration = outMatch[3] + "박";
+            logger.debug(
+              "PARSING",
+              `체크아웃(기존포맷): ${parsedContent.checkOutDay}, 숙박: ${parsedContent.stayDuration}`
+            );
+          }
         }
         foundCheckIn = true;
         break;
